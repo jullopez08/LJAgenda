@@ -1,0 +1,21 @@
+name: ljagenda
+
+services:
+  postgres:
+    image: postgres:16
+    container_name: ljagenda_postgres
+    restart: unless-stopped
+
+    environment:
+      POSTGRES_USER: ljtech
+      POSTGRES_PASSWORD: ljtech123
+      POSTGRES_DB: ljagenda
+
+    ports:
+      - "5432:5432"
+
+    volumes:
+      - ljagenda_postgres_data:/var/lib/postgresql/data
+
+volumes:
+  ljagenda_postgres_data:
