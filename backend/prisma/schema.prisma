@@ -12,3 +12,38 @@ datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
 }
+
+enum AppointmentStatus {
+  PENDING
+  CONFIRMED
+  CANCELLED
+  NO_SHOW
+}
+
+model Patient {
+  id           String   @id @default(cuid())
+  name         String
+  phone        String
+  email        String?
+  notes        String?
+
+  appointments Appointment[]
+
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model Appointment {
+  id         String   @id @default(cuid())
+
+  date       DateTime
+  reason     String?
+
+  status     AppointmentStatus @default(PENDING)
+
+  patientId  String
+  patient    Patient @relation(fields: [patientId], references: [id])
+
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
