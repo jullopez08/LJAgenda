@@ -19,7 +19,18 @@ enum AppointmentStatus {
   NO_SHOW
 }
 
+enum WeekDay {
+  MONDAY
+  TUESDAY
+  WEDNESDAY
+  THURSDAY
+  FRIDAY
+  SATURDAY
+  SUNDAY
+}
+
 model Doctor {
+
   id          String   @id @default(cuid())
 
   name        String
@@ -28,38 +39,107 @@ model Doctor {
 
   clinicName  String?
 
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  /// minutos entre citas
+  slotGap     Int @default(0)
+
+  services        Service[]
+  appointments    Appointment[]
+
+  availability    DoctorAvailability[]
+  blocks          DoctorBlock[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model DoctorAvailability {
+
+  id        String @id @default(cuid())
+
+  doctorId  String
+  doctor    Doctor @relation(fields: [doctorId], references: [id])
+
+  day       WeekDay
+
+  startTime String
+  endTime   String
+
+  createdAt DateTime @default(now())
+}
+
+model DoctorBlock {
+
+  id        String @id @default(cuid())
+
+  doctorId  String
+  doctor    Doctor @relation(fields: [doctorId], references: [id])
+
+  date      DateTime
+
+  reason    String?
+
+  createdAt DateTime @default(now())
+}
+
+model Service {
+
+  id          String @id @default(cuid())
+
+  name        String
+
+  description String?
+
+  duration    Int
+
+  basePrice   Decimal?
+
+  active      Boolean @default(true)
+
+  doctorId    String
+  doctor      Doctor @relation(fields: [doctorId], references: [id])
+
+  appointments Appointment[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model Patient {
-  id            String   @id @default(cuid())
 
-  name          String
-  phone         String
-  email         String?
-  notes         String?
+  id          String @id @default(cuid())
 
-  appointments  Appointment[]
+  name        String
+  phone       String
+  email       String?
+  notes       String?
 
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  appointments Appointment[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model Appointment {
-  id               String   @id @default(cuid())
 
-  appointmentDate  DateTime
-  reason           String?
-  observations     String?
+  id              String @id @default(cuid())
 
-  status           AppointmentStatus @default(PENDING)
+  appointmentDate DateTime
 
-  patientId        String
-  patient          Patient @relation(fields: [patientId], references: [id])
+  observations    String?
 
-  confirmedAt      DateTime?
+  status          AppointmentStatus @default(PENDING)
 
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+  patientId String
+  patient   Patient @relation(fields: [patientId], references: [id])
+
+  serviceId String
+  service   Service @relation(fields: [serviceId], references: [id])
+
+  doctorId String
+  doctor   Doctor @relation(fields: [doctorId], references: [id])
+
+  confirmedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
