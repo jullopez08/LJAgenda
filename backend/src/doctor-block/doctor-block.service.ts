@@ -22,7 +22,7 @@ export class DoctorBlockService {
         doctor: true,
       },
       orderBy: {
-        date: 'asc',
+        startDate: 'desc',
       },
     });
   }

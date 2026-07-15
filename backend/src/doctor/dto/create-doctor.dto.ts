@@ -1,4 +1,4 @@
-import { IsEmail, IsOptional, IsString } from 'class-validator';
+import { IsEmail, IsInt, IsOptional, IsString, Min } from 'class-validator';
 
 export class CreateDoctorDto {
 
@@ -14,4 +14,9 @@ export class CreateDoctorDto {
   @IsOptional()
   @IsString()
   clinicName?: string;
+
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  slotGap?: number;
 }

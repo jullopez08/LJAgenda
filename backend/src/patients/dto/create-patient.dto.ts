@@ -1,6 +1,13 @@
-import { IsEmail, IsOptional, IsString } from 'class-validator';
+import { IdentificationType } from '@prisma/client';
+import { IsEmail, IsEnum, IsOptional, IsString } from 'class-validator';
 
 export class CreatePatientDto {
+  @IsEnum(IdentificationType)
+  identificationType!: IdentificationType;
+
+  @IsString()
+  identification!: string;
+
   @IsString()
   name!: string;
 

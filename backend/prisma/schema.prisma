@@ -36,7 +36,8 @@ model DoctorAvailability {
 model DoctorBlock {
   id        String   @id @default(cuid())
   doctorId  String
-  date      DateTime
+  startDate DateTime
+  endDate   DateTime
   reason    String?
   createdAt DateTime @default(now())
   doctor    Doctor   @relation(fields: [doctorId], references: [id])
@@ -55,16 +56,29 @@ model Service {
   appointments Appointment[]
   doctor       Doctor        @relation(fields: [doctorId], references: [id])
 }
-
+enum IdentificationType {
+  CC
+  CE
+  TI
+  PASSPORT
+  NIT
+}
 model Patient {
-  id           String        @id @default(cuid())
-  name         String
-  phone        String
-  email        String?
-  notes        String?
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
-  appointments Appointment[]
+  id                  String              @id @default(cuid())
+
+  identificationType  IdentificationType
+  identification      String              @unique
+
+  name                String
+
+  phone               String
+
+  email               String?
+
+  createdAt           DateTime            @default(now())
+  updatedAt           DateTime            @updatedAt
+
+  appointments        Appointment[]
 }
 
 model Appointment {
@@ -74,6 +88,7 @@ model Appointment {
   createdAt       DateTime          @default(now())
   updatedAt       DateTime          @updatedAt
   appointmentDate DateTime
+  appointmentTime String
   confirmedAt     DateTime?
   observations    String?
   doctorId        String

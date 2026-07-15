@@ -10,7 +10,10 @@ export class CreateDoctorBlockDto {
   doctorId!: string;
 
   @IsDateString()
-  date!: string;
+  startDate!: string;
+
+  @IsDateString()
+  endDate!: string;
 
   @IsOptional()
   @IsString()
