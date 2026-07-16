@@ -4,11 +4,13 @@ import { DoctorService } from "../../doctor/doctor.service";
 import { CreateDoctorScheduleBlockDto } from "../dto/create-doctor-schedule-block.dto";
 import { endOfDay, getWeekDay, startOfDay } from "../../appointment/helpers/appointment-date";
 import { addMinutes, hasTimeConflict, isTimeBetween, timeToMinutes } from "../../appointment/helpers/appointment-time";
+import { DoctorScheduleQueryService } from "../../common/doctor-schedule-query.service.ts";
 
 @Injectable()
 export class DoctorScheduleBlockValidator {
   constructor(private readonly prisma: PrismaService,
     private readonly doctorService: DoctorService,
+    private readonly queryService: DoctorScheduleQueryService
   ) { }
   async validateTimeRange(dto: CreateDoctorScheduleBlockDto) {
 
@@ -57,18 +59,11 @@ export class DoctorScheduleBlockValidator {
     dto: CreateDoctorScheduleBlockDto,
   ) {
 
-    const day = getWeekDay(dto.date);
-
-    const availabilities =
-      await this.prisma.doctorAvailability.findMany({
-        where: {
-          doctorId: doctor.id,
-          day,
-        },
-        orderBy: {
-          startTime: 'asc',
-        },
-      });
+ const availabilities =
+await this.queryService.getDoctorAvailabilities(
+    doctor.id,
+    dto.date,
+);
 
     if (!availabilities.length) {
       throw new BadRequestException(
@@ -152,22 +147,10 @@ export class DoctorScheduleBlockValidator {
   ) {
 
     const appointments =
-      await this.prisma.appointment.findMany({
-
-        where: {
-          doctorId: doctor.id,
-          status: {
-            not: "CANCELLED",
-          },
-
-          appointmentDate: {
-            gte: startOfDay(new Date(dto.date)),
-            lt: endOfDay(new Date(dto.date)),
-          },
-        },
-        include: { service: true },
-
-      });
+await this.queryService.getAppointments(
+    doctor.id,
+    dto.date,
+);
 
     for (const appointment of appointments) {
 

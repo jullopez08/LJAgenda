@@ -30,6 +30,13 @@ async create(dto: CreateAppointmentDto) {
 
   }
 
+  async getAvailableSlots(
+    doctorId: string,
+    serviceId: string,
+    date: string,
+){
+
+}
 
 
 }
