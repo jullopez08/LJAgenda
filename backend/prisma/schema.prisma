@@ -20,6 +20,7 @@ model Doctor {
   appointments Appointment[]
   availability DoctorAvailability[]
   blocks       DoctorBlock[]
+  scheduleBlocks DoctorScheduleBlock[]
   services     Service[]
 }
 
@@ -97,7 +98,23 @@ model Appointment {
   patient         Patient           @relation(fields: [patientId], references: [id])
   service         Service           @relation(fields: [serviceId], references: [id])
 }
+model DoctorScheduleBlock {
+  id         String   @id @default(cuid())
 
+  doctorId   String
+
+  date       DateTime
+
+  startTime  String
+
+  endTime    String
+
+  reason     String?
+
+  createdAt  DateTime @default(now())
+
+  doctor Doctor @relation(fields: [doctorId], references: [id])
+}
 enum AppointmentStatus {
   PENDING
   CONFIRMED

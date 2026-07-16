@@ -5,7 +5,7 @@ import { ServiceService } from '../../service/service.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreateAppointmentDto } from '../dto/create-appointment.dto';
 
-import { addMinutes, dateToTime, hasTimeConflict, isTimeBetween, timeToMinutes } from '../helpers/appointment-time';
+import { addMinutes, hasTimeConflict, isTimeBetween, timeToMinutes } from '../helpers/appointment-time';
 import { endOfDay, startOfDay,getWeekDay } from '../helpers/appointment-date';
 import { HolidayService } from '../../holiday/holiday.service';
 
@@ -133,6 +133,50 @@ async validateAvailability(
 
   return validAvailability;
 }
+async validateDoctorScheduleBlock(
+  doctor: any,
+  service: any,
+  dto: CreateAppointmentDto,
+) {
+
+  const appointmentStart = dto.appointmentTime;
+
+  const appointmentEnd = addMinutes(
+    appointmentStart,
+    service.duration + doctor.slotGap,
+  );
+
+  const blocks =
+    await this.prisma.doctorScheduleBlock.findMany({
+
+      where: {
+        doctorId: doctor.id,
+        date: {
+          gte: startOfDay(new Date(dto.appointmentDate)),
+          lt: endOfDay(new Date(dto.appointmentDate)),
+        },
+      },
+
+    });
+
+  for (const block of blocks) {
+
+    const overlap = hasTimeConflict(
+      appointmentStart,
+      appointmentEnd,
+      block.startTime,
+      block.endTime,
+    );
+
+    if (overlap) {
+      throw new BadRequestException(
+        `El doctor tiene bloqueado ese horario. ${block.reason ?? ''}`,
+      );
+    }
+  }
+
+  return true;
+}
 
 async validateAppointmentConflict(
   doctor: any,
@@ -140,7 +184,7 @@ async validateAppointmentConflict(
   dto: CreateAppointmentDto,
 ) {
 
-  const appointmentStart = dto.appointmentTime
+  const appointmentStart = dto.appointmentTime;
 
   const appointmentEnd = addMinutes(
     appointmentStart,
@@ -150,9 +194,22 @@ async validateAppointmentConflict(
   const appointments =
     await this.prisma.appointment.findMany({
 
-      where: {doctorId: doctor.id, status: {not: 'CANCELLED',},},
+      where: {
+        doctorId: doctor.id,
 
-      include: {service: true},
+        status: {
+          not: 'CANCELLED',
+        },
+
+        appointmentDate: {
+          gte: startOfDay(new Date(dto.appointmentDate)),
+          lt: endOfDay(new Date(dto.appointmentDate)),
+        },
+      },
+
+      include: {
+        service: true,
+      },
     });
 
   for (const appointment of appointments) {
@@ -164,7 +221,7 @@ async validateAppointmentConflict(
       appointment.service.duration + doctor.slotGap,
     );
 
-    const overlap = hasTimeConflict( 
+    const overlap = hasTimeConflict(
       appointmentStart,
       appointmentEnd,
       currentStart,
@@ -172,11 +229,13 @@ async validateAppointmentConflict(
     );
 
     if (overlap) {
-      throw new BadRequestException('Ya existe una cita en ese horario.',)}
+      throw new BadRequestException(
+        'Ya existe una cita en ese horario.',
+      );
+    }
   }
 
   return true;
-
 }
 
 async saveAppointment(dto: CreateAppointmentDto){

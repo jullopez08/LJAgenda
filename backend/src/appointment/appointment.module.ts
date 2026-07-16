@@ -7,9 +7,10 @@ import { DoctorModule } from '../doctor/doctor.module';
 import { PatientsModule } from '../patients/patients.module';
 import { ServiceModule } from '../service/service.module';
 import { HolidayModule } from '../holiday/holiday.module';
+import { DoctorScheduleBlockModule } from '../doctor-schedule-block/doctor-schedule-block.module';
 
 @Module({
-  imports:[PrismaModule, DoctorModule, PatientsModule, ServiceModule, HolidayModule],
+  imports:[PrismaModule, DoctorModule, PatientsModule, ServiceModule, HolidayModule, DoctorScheduleBlockModule],
   controllers: [AppointmentController],
   providers: [AppointmentService, AppointmentValidators]
 })

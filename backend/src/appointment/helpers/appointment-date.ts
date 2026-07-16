@@ -22,15 +22,16 @@ export function getWeekDay(date: string): WeekDay {
 export function startOfDay(date: Date): Date {
     const result = new Date(date);
 
-    result.setHours(0, 0, 0, 0);
+    result.setUTCHours(0, 0, 0, 0);
 
     return result;
 }
 
 export function endOfDay(date: Date): Date {
-    const result = startOfDay(date);
 
-    result.setDate(result.getDate() + 1);
+    const result = new Date(date)
+
+    result.setUTCHours(23, 59, 59, 999);
 
     return result;
 }
