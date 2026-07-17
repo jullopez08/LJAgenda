@@ -8,6 +8,7 @@ import { HolidayService } from '../../holiday/holiday.service';
 import { DoctorScheduleQueryService } from '../../common/doctor-schedule-query.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { getAppointmentDuration } from '../helpers/appointment-slot';
+import { RescheduleAppointmentDto } from '../dto/reschedule-appointment.dto';
 
 @Injectable()
 export class AppointmentValidators {
@@ -67,7 +68,10 @@ export class AppointmentValidators {
   async validateAvailability(
     doctor: any,
     service: any,
-    dto: CreateAppointmentDto,
+    dto: {
+      appointmentDate: string;
+      appointmentTime: string;
+    },
   ) {
 
     const availabilities =
@@ -128,7 +132,10 @@ export class AppointmentValidators {
   async validateDoctorScheduleBlock(
     doctor: any,
     service: any,
-    dto: CreateAppointmentDto,
+    dto: {
+      appointmentDate: string;
+      appointmentTime: string;
+    },
   ) {
 
     const appointmentStart = dto.appointmentTime;
@@ -172,38 +179,42 @@ export class AppointmentValidators {
   async validateAppointmentConflict(
     doctor: any,
     service: any,
-    dto: CreateAppointmentDto,
+    dto: { appointmentDate: string, appointmentTime: string },
+    ignoreAppointmentId?: string
   ) {
 
     const appointmentStart = dto.appointmentTime;
-const appointmentDuration = getAppointmentDuration(
-  service.duration,
-  doctor.slotGap,
-);
+    const appointmentDuration = getAppointmentDuration(
+      service.duration,
+      doctor.slotGap,
+    );
 
-const appointmentEnd = addMinutes(
-  appointmentStart,
-  appointmentDuration,
-);
+    const appointmentEnd = addMinutes(
+      appointmentStart,
+      appointmentDuration,
+    );
 
     const appointments =
       await this.queryService.getAppointments(
         doctor.id,
         dto.appointmentDate,
       );
+    const filteredAppointments = appointments.filter(
+      (appointment) => appointment.id !== ignoreAppointmentId
+    )
 
-    for (const appointment of appointments) {
+    for (const appointment of filteredAppointments) {
 
       const currentStart = appointment.appointmentTime;
-const currentDuration = getAppointmentDuration(
-  appointment.service.duration,
-  doctor.slotGap,
-);
+      const currentDuration = getAppointmentDuration(
+        appointment.service.duration,
+        doctor.slotGap,
+      );
 
-const currentEnd = addMinutes(
-  currentStart,
-  currentDuration,
-);
+      const currentEnd = addMinutes(
+        currentStart,
+        currentDuration,
+      );
 
       const overlap = hasTimeConflict(
         appointmentStart,
@@ -244,56 +255,102 @@ const currentEnd = addMinutes(
   }
   async validateAppointment(id: string) {
 
-  const appointment =
-    await this.queryService.getAppointmentById(id);
+    const appointment =
+      await this.queryService.getAppointmentById(id);
 
-  if (!appointment) {
-    throw new NotFoundException(
-      'La cita no existe.',
-    );
+    if (!appointment) {
+      throw new NotFoundException(
+        'La cita no existe.',
+      );
+    }
+
+    return appointment;
   }
+  async validateAppointmentCanBeCancelled(appointment: any) {
 
-  return appointment;
-}
-async validateAppointmentCanBeCancelled(appointment: any) {
+    if (appointment.status === 'CANCELLED') {
+      throw new BadRequestException(
+        'La cita ya fue cancelada.',
+      );
+    }
+    if (appointment.status === 'COMPLETED') {
+      throw new BadRequestException(
+        'No es posible cancelar una cita completada.',
+      );
+    } if (appointment.status === 'NO_SHOW') {
+      throw new BadRequestException(
+        'No es posible cancelar una cita marcada como inasistencia.',
+      );
+    }
+
+    return true;
+  }
+  async cancelAppointment(appointment: any) {
+
+    return this.prisma.appointment.update({
+
+      where: {
+        id: appointment.id,
+      },
+
+      data: {
+        status: 'CANCELLED',
+      },
+
+      include: {
+        doctor: true,
+        patient: true,
+        service: true,
+      },
+
+    });
+
+  }
+  async validateAppointmentCanBeRescheduled(
+  appointment: any,
+) {
 
   if (appointment.status === 'CANCELLED') {
     throw new BadRequestException(
-      'La cita ya fue cancelada.',
+      'No es posible reprogramar una cita cancelada.',
     );
   }
+
   if (appointment.status === 'COMPLETED') {
-  throw new BadRequestException(
-    'No es posible cancelar una cita completada.',
-  );
-}if (appointment.status === 'NO_SHOW') {
-  throw new BadRequestException(
-    'No es posible cancelar una cita marcada como inasistencia.',
-  );
-}
+    throw new BadRequestException(
+      'No es posible reprogramar una cita completada.',
+    );
+  }
+
+  if (appointment.status === 'NO_SHOW') {
+    throw new BadRequestException(
+      'No es posible reprogramar una cita marcada como inasistencia.',
+    );
+  }
 
   return true;
 }
-async cancelAppointment(appointment: any) {
+async rescheduleAppointment(
+  appointment: any,
+  dto: RescheduleAppointmentDto,
+) {
 
   return this.prisma.appointment.update({
-
     where: {
       id: appointment.id,
     },
-
     data: {
-      status: 'CANCELLED',
+      appointmentDate: new Date(
+        `${dto.appointmentDate}T${dto.appointmentTime}:00`,
+      ),
+      appointmentTime: dto.appointmentTime,
     },
-
     include: {
       doctor: true,
       patient: true,
       service: true,
     },
-
   });
-
 }
 
 }

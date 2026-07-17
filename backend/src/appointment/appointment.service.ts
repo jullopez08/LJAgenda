@@ -6,6 +6,7 @@ import { getAppointmentDuration, getCurrentTime, hasSlotConflict } from './helpe
 import { generateSlots } from './helpers/appointment-slot';
 import { addMinutes, hasTimeConflict } from './helpers/appointment-time';
 import { isToday } from './helpers/appointment-date';
+import { RescheduleAppointmentDto } from './dto/reschedule-appointment.dto';
 
 @Injectable()
 export class AppointmentService {
@@ -108,6 +109,34 @@ async cancel(id: string) {
         appointment,
     );
 
+}
+async reschedule(id: string,dto: RescheduleAppointmentDto) {
+    const appointment =   await this.validators.validateAppointment(id);
+
+    await this.validators.validateAppointmentCanBeRescheduled(appointment);
+
+    const doctor =   await this.validators.validateDoctor( appointment.doctorId);
+
+    const service =  await this.validators.validateService(appointment.serviceId);
+
+    await this.validators.validateDoctorBlock( doctor,  dto.appointmentDate);
+
+    await this.validators.validateHoliday(dto.appointmentDate);
+
+    await this.validators.validateAvailability( doctor, service,
+        {appointmentDate: dto.appointmentDate,  appointmentTime: dto.appointmentTime} 
+    );
+
+    await this.validators.validateDoctorScheduleBlock(doctor, service,
+        { appointmentDate: dto.appointmentDate, appointmentTime: dto.appointmentTime} 
+    );
+
+    await this.validators.validateAppointmentConflict(doctor, service,
+        {appointmentDate: dto.appointmentDate,  appointmentTime: dto.appointmentTime} ,
+        appointment.id
+    );
+
+    return this.validators.rescheduleAppointment(appointment, dto);
 }
 
 
