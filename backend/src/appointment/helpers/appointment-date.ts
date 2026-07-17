@@ -35,3 +35,21 @@ export function endOfDay(date: Date): Date {
 
     return result;
 }
+export function isToday(date: string): boolean {
+
+    const today = new Date();
+
+    const [year, month, day] = date.split('-').map(Number);
+
+    const selectedDate = new Date(
+        year,
+        month - 1,
+        day,
+    );
+
+    return (
+        today.getFullYear() === selectedDate.getFullYear() &&
+        today.getMonth() === selectedDate.getMonth() &&
+        today.getDate() === selectedDate.getDate()
+    );
+}

@@ -2,9 +2,9 @@ import { BadRequestException, Injectable } from "@nestjs/common";
 import { PrismaService } from "../../prisma/prisma.service";
 import { DoctorService } from "../../doctor/doctor.service";
 import { CreateDoctorScheduleBlockDto } from "../dto/create-doctor-schedule-block.dto";
-import { endOfDay, getWeekDay, startOfDay } from "../../appointment/helpers/appointment-date";
 import { addMinutes, hasTimeConflict, isTimeBetween, timeToMinutes } from "../../appointment/helpers/appointment-time";
 import { DoctorScheduleQueryService } from "../../common/doctor-schedule-query.service.ts";
+import { getAppointmentDuration } from "../../appointment/helpers/appointment-slot";
 
 @Injectable()
 export class DoctorScheduleBlockValidator {
@@ -31,19 +31,11 @@ export class DoctorScheduleBlockValidator {
     dto: CreateDoctorScheduleBlockDto,
   ) {
 
-    const date = new Date(dto.date);
-
-    const block = await this.prisma.doctorBlock.findFirst({
-      where: {
-        doctorId: doctor.id,
-        startDate: {
-          lte: endOfDay(date),
-        },
-        endDate: {
-          gte: startOfDay(date),
-        },
-      },
-    });
+    const block =
+      await this.queryService.getDoctorBlock(
+        doctor.id,
+        dto.date,
+      );
 
     if (block) {
       throw new BadRequestException(
@@ -59,11 +51,11 @@ export class DoctorScheduleBlockValidator {
     dto: CreateDoctorScheduleBlockDto,
   ) {
 
- const availabilities =
-await this.queryService.getDoctorAvailabilities(
-    doctor.id,
-    dto.date,
-);
+    const availabilities =
+      await this.queryService.getDoctorAvailabilities(
+        doctor.id,
+        dto.date,
+      );
 
     if (!availabilities.length) {
       throw new BadRequestException(
@@ -147,10 +139,10 @@ await this.queryService.getDoctorAvailabilities(
   ) {
 
     const appointments =
-await this.queryService.getAppointments(
-    doctor.id,
-    dto.date,
-);
+      await this.queryService.getAppointments(
+        doctor.id,
+        dto.date,
+      );
 
     for (const appointment of appointments) {
 
@@ -158,8 +150,11 @@ await this.queryService.getAppointments(
 
       const currentEnd = addMinutes(
         currentStart,
-        appointment.service.duration + doctor.slotGap
-      )
+        getAppointmentDuration(
+          appointment.service.duration,
+          doctor.slotGap,
+        ),
+      );
 
       const overlap = hasTimeConflict(
         dto.startTime,
@@ -177,7 +172,6 @@ await this.queryService.getAppointments(
 
     return true;
   }
-
 
 
 }

@@ -3,23 +3,22 @@ import { DoctorService } from '../../doctor/doctor.service';
 import { PatientsService } from '../../patients/patients.service';
 import { ServiceService } from '../../service/service.service';
 import { CreateAppointmentDto } from '../dto/create-appointment.dto';
-
 import { addMinutes, hasTimeConflict, isTimeBetween, timeToMinutes } from '../helpers/appointment-time';
-import { endOfDay, startOfDay, getWeekDay } from '../helpers/appointment-date';
 import { HolidayService } from '../../holiday/holiday.service';
 import { DoctorScheduleQueryService } from '../../common/doctor-schedule-query.service.ts';
 import { PrismaService } from '../../prisma/prisma.service';
+import { getAppointmentDuration } from '../helpers/appointment-slot';
 
 @Injectable()
 export class AppointmentValidators {
 
   constructor(
-  private readonly doctorService: DoctorService,
-  private readonly patientService: PatientsService,
-  private readonly serviceService: ServiceService,
-  private readonly holidayService: HolidayService,
-  private readonly queryService: DoctorScheduleQueryService,
-  private readonly prisma: PrismaService,
+    private readonly doctorService: DoctorService,
+    private readonly patientService: PatientsService,
+    private readonly serviceService: ServiceService,
+    private readonly holidayService: HolidayService,
+    private readonly queryService: DoctorScheduleQueryService,
+    private readonly prisma: PrismaService,
   ) { }
 
   async validateDoctor(doctorId: string) {
@@ -38,15 +37,33 @@ export class AppointmentValidators {
     }
     return service
   }
-
- 
-  async validateHoliday(
-    dto: CreateAppointmentDto,
+  async validateDoctorBlock(
+    doctor: any,
+    appointmentDate: string
   ) {
-    await this.holidayService.isHoliday(dto.appointmentDate)
+
+    const block =
+      await this.queryService.getDoctorBlock(
+        doctor.id,
+        appointmentDate,
+      );
+
+    if (block) {
+      throw new BadRequestException(
+        `El doctor no atiende. ${block.reason ?? ''}`,
+      );
+    }
+
+    return true;
+  }
+
+  async validateHoliday(
+    appointmentDate: string
+  ) {
+    await this.holidayService.isHoliday(appointmentDate)
 
   }
- 
+
   async validateAvailability(
     doctor: any,
     service: any,
@@ -54,16 +71,21 @@ export class AppointmentValidators {
   ) {
 
     const availabilities =
-   await this.queryService.getDoctorAvailabilities(
-    doctor.id,
-    dto.appointmentDate,
-);
+      await this.queryService.getDoctorAvailabilities(
+        doctor.id,
+        dto.appointmentDate,
+      );
 
     const appointmentStart = dto.appointmentTime;
 
+    const appointmentDuration = getAppointmentDuration(
+      service.duration,
+      doctor.slotGap,
+    );
+
     const appointmentEnd = addMinutes(
       appointmentStart,
-      service.duration + doctor.slotGap,
+      appointmentDuration,
     );
 
     const validAvailability = availabilities.find((availability) => {
@@ -102,7 +124,7 @@ export class AppointmentValidators {
 
     return validAvailability;
   }
- 
+
   async validateDoctorScheduleBlock(
     doctor: any,
     service: any,
@@ -111,16 +133,21 @@ export class AppointmentValidators {
 
     const appointmentStart = dto.appointmentTime;
 
+    const appointmentDuration = getAppointmentDuration(
+      service.duration,
+      doctor.slotGap,
+    );
+
     const appointmentEnd = addMinutes(
       appointmentStart,
-      service.duration + doctor.slotGap,
+      appointmentDuration,
     );
 
     const blocks =
-await this.queryService.getDoctorScheduleBlocks(
-    doctor.id,
-    dto.appointmentDate,
-);
+      await this.queryService.getDoctorScheduleBlocks(
+        doctor.id,
+        dto.appointmentDate,
+      );
 
     for (const block of blocks) {
 
@@ -140,7 +167,7 @@ await this.queryService.getDoctorScheduleBlocks(
 
     return true;
   }
- 
+
 
   async validateAppointmentConflict(
     doctor: any,
@@ -149,26 +176,34 @@ await this.queryService.getDoctorScheduleBlocks(
   ) {
 
     const appointmentStart = dto.appointmentTime;
-
-    const appointmentEnd = addMinutes(
-      appointmentStart,
-      service.duration + doctor.slotGap,
-    );
-
-   const appointments =
-await this.queryService.getAppointments(
-    doctor.id,
-    dto.appointmentDate,
+const appointmentDuration = getAppointmentDuration(
+  service.duration,
+  doctor.slotGap,
 );
+
+const appointmentEnd = addMinutes(
+  appointmentStart,
+  appointmentDuration,
+);
+
+    const appointments =
+      await this.queryService.getAppointments(
+        doctor.id,
+        dto.appointmentDate,
+      );
 
     for (const appointment of appointments) {
 
       const currentStart = appointment.appointmentTime;
+const currentDuration = getAppointmentDuration(
+  appointment.service.duration,
+  doctor.slotGap,
+);
 
-      const currentEnd = addMinutes(
-        currentStart,
-        appointment.service.duration + doctor.slotGap,
-      );
+const currentEnd = addMinutes(
+  currentStart,
+  currentDuration,
+);
 
       const overlap = hasTimeConflict(
         appointmentStart,

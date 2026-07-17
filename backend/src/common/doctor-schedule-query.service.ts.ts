@@ -1,14 +1,13 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { endOfDay, getWeekDay, startOfDay } from '../appointment/helpers/appointment-date';
-import { CreateAppointmentDto } from '../appointment/dto/create-appointment.dto';
 
 @Injectable()
 export class DoctorScheduleQueryService {
 
   constructor(
     private readonly prisma: PrismaService,
-  ) {}
+  ) { }
 
   async getDoctorAvailabilities(
     doctorId: string,
@@ -82,49 +81,27 @@ export class DoctorScheduleQueryService {
     });
 
   }
-   async validateDoctorBlock(
-      doctor: any,
-      dto: CreateAppointmentDto,
-    ) {
-  
-      const date = new Date(dto.appointmentDate);
-  
-      const block = await this.prisma.doctorBlock.findFirst({
-        where: {
-          doctorId: doctor.id, startDate: { lte: endOfDay(date), },
-  
-          endDate: { gte: startOfDay(date), },
+ 
+  async getDoctorBlock(
+    doctorId: string,
+    appointmentDate: string,
+  ) {
+
+    const date = new Date(appointmentDate);
+
+    return this.prisma.doctorBlock.findFirst({
+      where: {
+        doctorId,
+        startDate: {
+          lte: endOfDay(date),
         },
-      });
-  
-      if (block) {
-        throw new BadRequestException(
-          `El doctor no atiende. ${block.reason ?? ''}`,
-        );
-      }
-  
-      return true;
-    }
-    async getDoctorBlock(
-  doctorId: string,
-  appointmentDate: string,
-) {
-
-  const date = new Date(appointmentDate);
-
-  return this.prisma.doctorBlock.findFirst({
-    where: {
-      doctorId,
-      startDate: {
-        lte: endOfDay(date),
+        endDate: {
+          gte: startOfDay(date),
+        },
       },
-      endDate: {
-        gte: startOfDay(date),
-      },
-    },
-  });
+    });
 
-}
-  
+  }
+
 
 }
