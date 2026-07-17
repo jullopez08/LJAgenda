@@ -84,7 +84,7 @@ model Patient {
 
 model Appointment {
   id              String            @id @default(cuid())
-  status          AppointmentStatus @default(PENDING)
+  status AppointmentStatus @default(SCHEDULED)
   patientId       String
   createdAt       DateTime          @default(now())
   updatedAt       DateTime          @updatedAt
@@ -116,9 +116,9 @@ model DoctorScheduleBlock {
   doctor Doctor @relation(fields: [doctorId], references: [id])
 }
 enum AppointmentStatus {
-  PENDING
-  CONFIRMED
+  SCHEDULED
   CANCELLED
+  COMPLETED
   NO_SHOW
 }
 

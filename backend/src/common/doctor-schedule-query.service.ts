@@ -102,6 +102,20 @@ export class DoctorScheduleQueryService {
     });
 
   }
+  async getAppointmentById(id: string) {
+
+  return this.prisma.appointment.findUnique({
+    where: {
+      id,
+    },
+    include: {
+      doctor: true,
+      patient: true,
+      service: true,
+    },
+  });
+
+}
 
 
 }

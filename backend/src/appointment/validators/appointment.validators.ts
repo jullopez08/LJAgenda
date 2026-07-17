@@ -1,11 +1,11 @@
-import { Injectable, BadRequestException } from '@nestjs/common';
+import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
 import { DoctorService } from '../../doctor/doctor.service';
 import { PatientsService } from '../../patients/patients.service';
 import { ServiceService } from '../../service/service.service';
 import { CreateAppointmentDto } from '../dto/create-appointment.dto';
 import { addMinutes, hasTimeConflict, isTimeBetween, timeToMinutes } from '../helpers/appointment-time';
 import { HolidayService } from '../../holiday/holiday.service';
-import { DoctorScheduleQueryService } from '../../common/doctor-schedule-query.service.ts';
+import { DoctorScheduleQueryService } from '../../common/doctor-schedule-query.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { getAppointmentDuration } from '../helpers/appointment-slot';
 
@@ -242,4 +242,58 @@ const currentEnd = addMinutes(
       }
     })
   }
+  async validateAppointment(id: string) {
+
+  const appointment =
+    await this.queryService.getAppointmentById(id);
+
+  if (!appointment) {
+    throw new NotFoundException(
+      'La cita no existe.',
+    );
+  }
+
+  return appointment;
+}
+async validateAppointmentCanBeCancelled(appointment: any) {
+
+  if (appointment.status === 'CANCELLED') {
+    throw new BadRequestException(
+      'La cita ya fue cancelada.',
+    );
+  }
+  if (appointment.status === 'COMPLETED') {
+  throw new BadRequestException(
+    'No es posible cancelar una cita completada.',
+  );
+}if (appointment.status === 'NO_SHOW') {
+  throw new BadRequestException(
+    'No es posible cancelar una cita marcada como inasistencia.',
+  );
+}
+
+  return true;
+}
+async cancelAppointment(appointment: any) {
+
+  return this.prisma.appointment.update({
+
+    where: {
+      id: appointment.id,
+    },
+
+    data: {
+      status: 'CANCELLED',
+    },
+
+    include: {
+      doctor: true,
+      patient: true,
+      service: true,
+    },
+
+  });
+
+}
+
 }

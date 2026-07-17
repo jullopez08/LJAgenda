@@ -4,7 +4,7 @@ import { DoctorScheduleBlockController } from './doctor-schedule-block.controlle
 import { PrismaModule } from '../prisma/prisma.module';
 import { DoctorModule } from '../doctor/doctor.module';
 import { DoctorScheduleBlockValidator } from './validators/doctor-schedule-block.validator';
-import { DoctorScheduleQueryService } from '../common/doctor-schedule-query.service.ts';
+import { DoctorScheduleQueryService } from '../common/doctor-schedule-query.service';
 
 @Module({
   imports: [PrismaModule, DoctorModule],

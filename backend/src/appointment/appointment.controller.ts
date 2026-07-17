@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Post, Query } from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, Post, Query } from '@nestjs/common';
 import { AppointmentService } from './appointment.service';
 import { CreateAppointmentDto } from './dto/create-appointment.dto';
 import { GetAvailableSlotsDto } from './dto/get-available-slots.dto';
@@ -16,9 +16,22 @@ export class AppointmentController {
         @Query() query: GetAvailableSlotsDto
     ) {
         return this.appointmentService.getAvailableSlots(
-           query.doctorId,
-           query.serviceId,
-           query.date,
+            query.doctorId,
+            query.serviceId,
+            query.date,
         );
     }
+    @Get(':id')
+    findOne(
+        @Param('id') id: string,
+    ) {
+        return this.appointmentService.findOne(id);
+    }
+    @Patch(':id/cancel')
+    cancel(
+        @Param('id') id: string,
+    ) {
+        return this.appointmentService.cancel(id);
+    }
+
 }

@@ -3,7 +3,7 @@ import { PrismaService } from "../../prisma/prisma.service";
 import { DoctorService } from "../../doctor/doctor.service";
 import { CreateDoctorScheduleBlockDto } from "../dto/create-doctor-schedule-block.dto";
 import { addMinutes, hasTimeConflict, isTimeBetween, timeToMinutes } from "../../appointment/helpers/appointment-time";
-import { DoctorScheduleQueryService } from "../../common/doctor-schedule-query.service.ts";
+import { DoctorScheduleQueryService } from "../../common/doctor-schedule-query.service";
 import { getAppointmentDuration } from "../../appointment/helpers/appointment-slot";
 
 @Injectable()

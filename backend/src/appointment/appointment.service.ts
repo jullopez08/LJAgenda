@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { CreateAppointmentDto } from './dto/create-appointment.dto';
 import { AppointmentValidators } from './validators/appointment.validators';
-import { DoctorScheduleQueryService } from '../common/doctor-schedule-query.service.ts';
+import { DoctorScheduleQueryService } from '../common/doctor-schedule-query.service';
 import { getAppointmentDuration, getCurrentTime, hasSlotConflict } from './helpers/appointment-slot';
 import { generateSlots } from './helpers/appointment-slot';
 import { addMinutes, hasTimeConflict } from './helpers/appointment-time';
@@ -52,21 +52,13 @@ export class AppointmentService {
 
         const appointments = await this.queryService.getAppointments(doctorId, date);
 
-        const appointmentDuration =
-            getAppointmentDuration(
-                service.duration,
-                doctor.slotGap,
-            );
+        const appointmentDuration =  getAppointmentDuration(service.duration, doctor.slotGap);
 
         let availableSlots: string[] = [];
 
         for (const availability of availabilities) {
 
-            const slots = generateSlots(
-                availability.startTime,
-                availability.endTime,
-                appointmentDuration,
-            );
+            const slots = generateSlots(availability.startTime, availability.endTime,  appointmentDuration);
 
             availableSlots.push(...slots);
         }
@@ -74,13 +66,7 @@ export class AppointmentService {
         availableSlots = availableSlots.filter((slot) => {
 
             const hasBlockConflict = blocks.some((block) =>
-                hasSlotConflict(
-                    slot,
-                    appointmentDuration,
-                    block.startTime,
-                    block.endTime,
-                ),
-            );
+                hasSlotConflict(slot, appointmentDuration, block.startTime, block.endTime ),);
 
             return !hasBlockConflict;
         });
@@ -89,22 +75,12 @@ export class AppointmentService {
 
             const hasAppointmentConflict = appointments.some((appointment) => {
 
-                const currentAppointmentDuration =
-                    getAppointmentDuration(
-                        appointment.service.duration,
-                        doctor.slotGap,
-                    );
+                const currentAppointmentDuration =  getAppointmentDuration(appointment.service.duration, doctor.slotGap);
 
                 return hasSlotConflict(
-                    slot,
-                    appointmentDuration,
-                    appointment.appointmentTime,
-                    addMinutes(
-                        appointment.appointmentTime,
-                        currentAppointmentDuration,
-                    ),
-                );
-            });
+                    slot, appointmentDuration,  appointment.appointmentTime,
+                    addMinutes( appointment.appointmentTime, currentAppointmentDuration,
+                    ))});
 
             return !hasAppointmentConflict;
         });
@@ -112,21 +88,27 @@ export class AppointmentService {
 
             const currentTime = getCurrentTime();
 
-            availableSlots = availableSlots.filter(
-                (slot) => slot > currentTime,
-            );
-          const today = new Date();
-const selectedDate = new Date(date);
-
-console.log({
-    today,
-    selectedDate,
-});
-
-        }
+            availableSlots = availableSlots.filter((slot) => slot > currentTime )}
         return availableSlots;
     }
 
+    async findOne(id: string) {
+    return this.validators.validateAppointment(id);
+}
+async cancel(id: string) {
+
+    const appointment =
+        await this.validators.validateAppointment(id);
+
+    await this.validators.validateAppointmentCanBeCancelled(
+        appointment,
+    );
+
+    return this.validators.cancelAppointment(
+        appointment,
+    );
+
+}
 
 
 
