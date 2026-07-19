@@ -117,6 +117,7 @@ model DoctorScheduleBlock {
 }
 enum AppointmentStatus {
   SCHEDULED
+  CONFIRMED
   CANCELLED
   COMPLETED
   NO_SHOW

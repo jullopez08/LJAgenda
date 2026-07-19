@@ -22,15 +22,15 @@ export class AppointmentValidators {
     private readonly prisma: PrismaService,
   ) { }
 
-  async validateDoctor(doctorId: string) {
+      async validateDoctor(doctorId: string) {
     return this.doctorService.findOne(doctorId);
   }
 
-  async validatePatient(patientId: string) {
+      async validatePatient(patientId: string) {
     return this.patientService.findOne(patientId);
   }
 
-  async validateService(serviceId: string) {
+     async validateService(serviceId: string) {
     const service = await this.serviceService.findOne(serviceId);
 
     if (!service.active) {
@@ -38,7 +38,7 @@ export class AppointmentValidators {
     }
     return service
   }
-  async validateDoctorBlock(
+     async validateDoctorBlock(
     doctor: any,
     appointmentDate: string
   ) {
@@ -58,14 +58,14 @@ export class AppointmentValidators {
     return true;
   }
 
-  async validateHoliday(
+     async validateHoliday(
     appointmentDate: string
   ) {
     await this.holidayService.isHoliday(appointmentDate)
 
   }
 
-  async validateAvailability(
+     async validateAvailability(
     doctor: any,
     service: any,
     dto: {
@@ -129,7 +129,7 @@ export class AppointmentValidators {
     return validAvailability;
   }
 
-  async validateDoctorScheduleBlock(
+    async validateDoctorScheduleBlock(
     doctor: any,
     service: any,
     dto: {
@@ -175,8 +175,7 @@ export class AppointmentValidators {
     return true;
   }
 
-
-  async validateAppointmentConflict(
+     async validateAppointmentConflict(
     doctor: any,
     service: any,
     dto: { appointmentDate: string, appointmentTime: string },
@@ -233,7 +232,7 @@ export class AppointmentValidators {
     return true;
   }
 
-  async saveAppointment(dto: CreateAppointmentDto) {
+     async saveAppointment(dto: CreateAppointmentDto) {
 
     const appointmentDate = new Date(`${dto.appointmentDate}T${dto.appointmentTime}:00`)
     return this.prisma.appointment.create({
@@ -253,7 +252,7 @@ export class AppointmentValidators {
       }
     })
   }
-  async validateAppointment(id: string) {
+     async validateAppointment(id: string) {
 
     const appointment =
       await this.queryService.getAppointmentById(id);
@@ -266,71 +265,8 @@ export class AppointmentValidators {
 
     return appointment;
   }
-  async validateAppointmentCanBeCancelled(appointment: any) {
 
-    if (appointment.status === 'CANCELLED') {
-      throw new BadRequestException(
-        'La cita ya fue cancelada.',
-      );
-    }
-    if (appointment.status === 'COMPLETED') {
-      throw new BadRequestException(
-        'No es posible cancelar una cita completada.',
-      );
-    } if (appointment.status === 'NO_SHOW') {
-      throw new BadRequestException(
-        'No es posible cancelar una cita marcada como inasistencia.',
-      );
-    }
-
-    return true;
-  }
-  async cancelAppointment(appointment: any) {
-
-    return this.prisma.appointment.update({
-
-      where: {
-        id: appointment.id,
-      },
-
-      data: {
-        status: 'CANCELLED',
-      },
-
-      include: {
-        doctor: true,
-        patient: true,
-        service: true,
-      },
-
-    });
-
-  }
-  async validateAppointmentCanBeRescheduled(
-  appointment: any,
-) {
-
-  if (appointment.status === 'CANCELLED') {
-    throw new BadRequestException(
-      'No es posible reprogramar una cita cancelada.',
-    );
-  }
-
-  if (appointment.status === 'COMPLETED') {
-    throw new BadRequestException(
-      'No es posible reprogramar una cita completada.',
-    );
-  }
-
-  if (appointment.status === 'NO_SHOW') {
-    throw new BadRequestException(
-      'No es posible reprogramar una cita marcada como inasistencia.',
-    );
-  }
-
-  return true;
-}
-async rescheduleAppointment(
+      async rescheduleAppointment(
   appointment: any,
   dto: RescheduleAppointmentDto,
 ) {

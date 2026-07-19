@@ -7,7 +7,7 @@ import { RescheduleAppointmentDto } from './dto/reschedule-appointment.dto';
 @Controller('appointment')
 export class AppointmentController {
     constructor(private readonly appointmentService: AppointmentService) { }
-// publicos
+    // publicos
     @Post()
     create(@Body() createAppointmentDto: CreateAppointmentDto) {
         return this.appointmentService.create(createAppointmentDto)
@@ -34,6 +34,12 @@ export class AppointmentController {
     ) {
         return this.appointmentService.cancel(id);
     }
+    @Patch(':id/confirm')
+    confirm(
+        @Param('id') id: string,
+    ) {
+        return this.appointmentService.confirm(id);
+    }
     @Patch(':id/reschedule')
     reschedule(
         @Param('id') id: string,
@@ -43,6 +49,19 @@ export class AppointmentController {
             id,
             dto,
         );
+    }
+    @Patch(':id/complete')
+    complete(
+        @Param('id') id: string,
+    ) {
+        return this.appointmentService.complete(id);
+    }
+
+    @Patch(':id/no-show')
+    noShow(
+        @Param('id') id: string,
+    ) {
+        return this.appointmentService.noShow(id);
     }
 
 }
