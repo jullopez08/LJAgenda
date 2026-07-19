@@ -18,7 +18,4 @@ export class CreatePatientDto {
   @IsEmail()
   email?: string;
 
-  @IsOptional()
-  @IsString()
-  notes?: string;
 }

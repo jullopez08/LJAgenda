@@ -12,7 +12,11 @@ export class DoctorBlockService {
 
   async create(createDoctorBlockDto: CreateDoctorBlockDto) {
     return this.prisma.doctorBlock.create({
-      data: createDoctorBlockDto,
+      data: {
+    ...createDoctorBlockDto,
+    startDate: new Date(createDoctorBlockDto.startDate),
+    endDate: new Date(createDoctorBlockDto.endDate),
+}
     });
   }
 
