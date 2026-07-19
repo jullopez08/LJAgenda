@@ -9,6 +9,7 @@ import { isToday } from './helpers/appointment-date';
 import { RescheduleAppointmentDto } from './dto/reschedule-appointment.dto';
 import { AppointmentStatus } from '@prisma/client';
 import { StatusValidators } from './validators/appointment-state.validator';
+import { GetAppointmentsDto } from './dto/get-appointments.dto';
 
 @Injectable()
 export class AppointmentService {
@@ -103,7 +104,11 @@ export class AppointmentService {
         }
         return availableSlots;
     }
+    async findAll(query: GetAppointmentsDto) {
 
+        return this.stateValidator.findAppointments(query);
+
+    }
     async findOne(id: string) {
         return this.validators.validateAppointment(id);
     }

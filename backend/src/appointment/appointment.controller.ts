@@ -3,6 +3,7 @@ import { AppointmentService } from './appointment.service';
 import { CreateAppointmentDto } from './dto/create-appointment.dto';
 import { GetAvailableSlotsDto } from './dto/get-available-slots.dto';
 import { RescheduleAppointmentDto } from './dto/reschedule-appointment.dto';
+import { GetAppointmentsDto } from './dto/get-appointments.dto';
 
 @Controller('appointment')
 export class AppointmentController {
@@ -21,6 +22,12 @@ export class AppointmentController {
             query.serviceId,
             query.date,
         );
+    }
+    @Get()
+    findAll(
+        @Query() query: GetAppointmentsDto,
+    ) {
+        return this.appointmentService.findAll(query);
     }
     @Get(':id')
     findOne(

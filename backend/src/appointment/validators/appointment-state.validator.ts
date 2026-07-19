@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable } from "@nestjs/common";
 import { PrismaService } from "../../prisma/prisma.service";
 import { AppointmentStatus } from "@prisma/client";
+import { GetAppointmentsDto } from "../dto/get-appointments.dto";
 
 @Injectable()
 
@@ -72,4 +73,56 @@ export class StatusValidators {
       );
     }
   }
+  async findAppointments(
+    query: GetAppointmentsDto,
+) {
+
+    const where: any = {};
+
+    if (query.doctorId) {
+        where.doctorId = query.doctorId;
+    }
+
+    if (query.patientId) {
+        where.patientId = query.patientId;
+    }
+
+    if (query.status) {
+        where.status = query.status;
+    }
+
+    if (query.date) {
+
+        where.appointmentDate = {
+
+            gte: new Date(`${query.date}T00:00:00`),
+
+            lte: new Date(`${query.date}T23:59:59.999`),
+
+        };
+
+    }
+
+    return this.prisma.appointment.findMany({
+
+        where,
+
+        include: {
+            doctor: true,
+            patient: true,
+            service: true,
+        },
+
+        orderBy: [
+            {
+                appointmentDate: 'asc',
+            },
+            {
+                appointmentTime: 'asc',
+            },
+        ],
+
+    });
+
+}
 } 
