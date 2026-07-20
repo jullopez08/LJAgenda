@@ -2,6 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateDoctorBlockDto } from './dto/create-doctor-block.dto';
 import { UpdateDoctorBlockDto } from './dto/update-doctor-block.dto';
+import { validateAndConvertIsoDates, validateAndConvertUpdateDates } from '../appointment/helpers/appointment-date';
 
 @Injectable()
 export class DoctorBlockService {
@@ -11,11 +12,14 @@ export class DoctorBlockService {
   ) {}
 
   async create(createDoctorBlockDto: CreateDoctorBlockDto) {
+    const {startDate, endDate} = validateAndConvertIsoDates( 
+    createDoctorBlockDto.startDate, 
+    createDoctorBlockDto.endDate)
     return this.prisma.doctorBlock.create({
       data: {
     ...createDoctorBlockDto,
-    startDate: new Date(createDoctorBlockDto.startDate),
-    endDate: new Date(createDoctorBlockDto.endDate),
+    startDate,
+    endDate
 }
     });
   }
@@ -47,16 +51,14 @@ export class DoctorBlockService {
     return block;
   }
 
-  async update(
-    id: string,
-    updateDoctorBlockDto: UpdateDoctorBlockDto,
-  ) {
-
+ async update(id: string, updateDoctorBlockDto: UpdateDoctorBlockDto) {
     await this.findOne(id);
+
+    const cleanUpdateData = validateAndConvertUpdateDates(updateDoctorBlockDto);
 
     return this.prisma.doctorBlock.update({
       where: { id },
-      data: updateDoctorBlockDto,
+      data: cleanUpdateData,
     });
   }
 

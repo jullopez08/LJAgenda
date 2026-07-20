@@ -1,3 +1,4 @@
+import { BadRequestException } from "@nestjs/common";
 import { WeekDay } from "@prisma/client";
 
 export function getWeekDay(date: string): WeekDay {
@@ -52,4 +53,38 @@ export function isToday(date: string): boolean {
         today.getMonth() === selectedDate.getMonth() &&
         today.getDate() === selectedDate.getDate()
     );
+}
+
+export function validateAndConvertIsoDates(startDateStr: string, endDateStr: string) {
+    const startDate = new Date(startDateStr);
+    const endDate = new Date(endDateStr);
+
+    if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+        throw new BadRequestException(
+            'Las fechas proporcionadas tienen un formato inválido. Asegúrese de enviar un formato ISO-8601 válido.'
+        );
+    }
+
+    return { startDate, endDate };
+}
+export function validateAndConvertUpdateDates(dto: any) {
+  const updateData = { ...dto };
+
+  if (dto.startDate) {
+    const parsedStart = new Date(dto.startDate);
+    if (isNaN(parsedStart.getTime())) {
+      throw new BadRequestException('Formato de fecha de inicio (startDate) inválido. Use ISO-8601.');
+    }
+    updateData.startDate = parsedStart;
+  }
+
+  if (dto.endDate) {
+    const parsedEnd = new Date(dto.endDate);
+    if (isNaN(parsedEnd.getTime())) {
+      throw new BadRequestException('Formato de fecha de fin (endDate) inválido. Use ISO-8601.');
+    }
+    updateData.endDate = parsedEnd;
+  }
+
+  return updateData;
 }

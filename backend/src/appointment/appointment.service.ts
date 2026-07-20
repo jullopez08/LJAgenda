@@ -23,9 +23,9 @@ export class AppointmentService {
 
         const doctor = await this.validators.validateDoctor(dto.doctorId);
 
-        await this.validators.validatePatient(dto.patientId);
-
         const service = await this.validators.validateService(dto.serviceId);
+        
+        const patient = await this.validators.findOrCreatePatient(dto)
 
         await this.validators.validateDoctorBlock(doctor, dto.appointmentDate);
 
@@ -37,7 +37,7 @@ export class AppointmentService {
 
         await this.validators.validateAppointmentConflict(doctor, service, dto);
 
-        return this.validators.saveAppointment(dto)
+        return this.validators.saveAppointment(dto, patient.id)
 
     }
 

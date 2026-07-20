@@ -1,9 +1,11 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post, UseGuards } from '@nestjs/common';
 import { DoctorAvailabilityService } from './doctor-availability.service';
 import { CreateDoctorAvailabilityDto } from './dto/create-doctor-availability.dto';
 import { UpdateDoctorAvailabilityDto } from './dto/update-doctor-availability.dto';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
 @Controller('doctor-availability')
+@UseGuards(JwtAuthGuard)
 export class DoctorAvailabilityController {
     constructor(
         private readonly doctorAvailabilityService: DoctorAvailabilityService

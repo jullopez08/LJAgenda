@@ -6,13 +6,16 @@ import {
   Param,
   Patch,
   Post,
+  UseGuards,
 } from '@nestjs/common';
 
 import { DoctorBlockService } from './doctor-block.service';
 import { CreateDoctorBlockDto } from './dto/create-doctor-block.dto';
 import { UpdateDoctorBlockDto } from './dto/update-doctor-block.dto';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
 @Controller('doctor-block')
+@UseGuards(JwtAuthGuard)
 export class DoctorBlockController {
 
   constructor(

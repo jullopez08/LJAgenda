@@ -1,9 +1,10 @@
-import { Body, Controller, Get, Param, Patch, Post, Query } from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
 import { AppointmentService } from './appointment.service';
 import { CreateAppointmentDto } from './dto/create-appointment.dto';
 import { GetAvailableSlotsDto } from './dto/get-available-slots.dto';
 import { RescheduleAppointmentDto } from './dto/reschedule-appointment.dto';
 import { GetAppointmentsDto } from './dto/get-appointments.dto';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
 @Controller('appointment')
 export class AppointmentController {
@@ -24,12 +25,14 @@ export class AppointmentController {
         );
     }
     @Get()
+    @UseGuards(JwtAuthGuard)
     findAll(
         @Query() query: GetAppointmentsDto,
     ) {
         return this.appointmentService.findAll(query);
     }
     @Get(':id')
+    @UseGuards(JwtAuthGuard)
     findOne(
         @Param('id') id: string,
     ) {
@@ -58,6 +61,7 @@ export class AppointmentController {
         );
     }
     @Patch(':id/complete')
+    @UseGuards(JwtAuthGuard)
     complete(
         @Param('id') id: string,
     ) {
@@ -65,6 +69,7 @@ export class AppointmentController {
     }
 
     @Patch(':id/no-show')
+    @UseGuards(JwtAuthGuard)
     noShow(
         @Param('id') id: string,
     ) {

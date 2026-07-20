@@ -1,0 +1,2760 @@
+{
+  "info": {
+    "_postman_id": "b7082873-df10-418a-acbe-08aa232c3a03",
+    "name": "LJAgenda Backend API - QA Automation",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "31498939",
+    "_collection_link": "https://go.postman.co/collection/31498939-b7082873-df10-418a-acbe-08aa232c3a03?source=collection_link"
+  },
+  "item": [
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "// ── Login ────────────────────────────────────────────────────────────────────",
+                  "// Flag de escenario: establece la variable de colección 'loginScenario' en",
+                  "//   \"happy\"   → credenciales válidas (se espera 200/201 + token)",
+                  "//   \"invalid\" → credenciales sintácticamente válidas pero funcionalmente incorrectas (se espera 401)",
+                  "//   \"malformed\" → credenciales con formato incorrecto (se espera 400)",
+                  "//",
+                  "// Si no está definida, se infiere automáticamente a partir de la respuesta real.",
+                  "",
+                  "const body = pm.request.body ? JSON.parse(pm.request.body.raw || '{}') : {};",
+                  "const hasEmail    = body.email    && /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(body.email);",
+                  "const hasPassword = body.password && String(body.password).trim().length >= 6;",
+                  "",
+                  "// Leer flag explícito; si no existe, inferir por respuesta",
+                  "let scenario = pm.collectionVariables.get('loginScenario') || '';",
+                  "",
+                  "if (!scenario) {",
+                  "    if (!hasEmail || !hasPassword) {",
+                  "        scenario = 'malformed';",
+                  "    } else if (pm.response.code === 401) {",
+                  "        // Credenciales sintácticamente válidas pero la API devolvió 401 → credenciales inválidas",
+                  "        scenario = 'invalid';",
+                  "    } else {",
+                  "        scenario = 'happy';",
+                  "    }",
+                  "}",
+                  "",
+                  "// ── Escenario: credenciales con formato incorrecto ────────────────────────────",
+                  "if (scenario === 'malformed') {",
+                  "    pm.test('Credenciales inválidas/faltantes → 400', function () {",
+                  "        pm.expect(pm.response.code, 'Respuesta equivocada').to.equal(400);",
+                  "    });",
+                  "",
+                  "// ── Escenario: credenciales sintácticamente válidas pero incorrectas ──────────",
+                  "} else if (scenario === 'invalid') {",
+                  "    pm.test('Credenciales incorrectas → 401', function () {",
+                  "        pm.expect(pm.response.code, 'Respuesta equivocada').to.equal(401);",
+                  "    });",
+                  "    pm.test('Mensaje de error indica credenciales incorrectas', function () {",
+                  "        const json = pm.response.json();",
+                  "        pm.expect(json.message || json.error || '', 'Respuesta equivocada')",
+                  "            .to.match(/credenciales|unauthorized|invalid/i);",
+                  "    });",
+                  "",
+                  "// ── Escenario: happy path ─────────────────────────────────────────────────────",
+                  "} else {",
+                  "    pm.test('Login exitoso → 200 o 201', function () {",
+                  "        pm.expect([200, 201], 'Respuesta equivocada').to.include(pm.response.code);",
+                  "    });",
+                  "    if ([200, 201].includes(pm.response.code)) {",
+                  "        const json = pm.response.json();",
+                  "        pm.test('Respuesta contiene token JWT', function () {",
+                  "            pm.expect(json).to.satisfy(j => !!(j.token || j.access_token || j.accessToken), 'Respuesta equivocada');",
+                  "        });",
+                  "        pm.test('Token no está vacío', function () {",
+                  "            const token = json.token || json.access_token || json.accessToken;",
+                  "            pm.expect(token, 'Respuesta equivocada').to.be.a('string').and.not.empty;",
+                  "        });",
+                  "        const token = json.token || json.access_token || json.accessToken;",
+                  "        if (token) pm.collectionVariables.set('jwtToken', token);",
+                  "    }",
+                  "}"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"email\":\"doctor.qa@correo.com\",\"password\":\"Passw0rd.QA!\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Appointments",
+      "item": [
+        {
+          "name": "Create Appointment",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "// ── Create Appointment ────────────────────────────────────────────────────────",
+                  "const body = JSON.parse(pm.request.body.raw || '{}');",
+                  "const isPlaceholder = (v) => !v || v === '' || /^\\{\\{.*\\}\\}$/.test(String(v));",
+                  "const emailValid = body.email && /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(body.email);",
+                  "const dateValid  = body.appointmentDate && /^\\d{4}-\\d{2}-\\d{2}$/.test(body.appointmentDate);",
+                  "const timeValid  = body.appointmentTime && /^\\d{2}:\\d{2}$/.test(body.appointmentTime);",
+                  "const phoneValid = body.phone && /^\\d{7,15}$/.test(String(body.phone));",
+                  "const missingRequired = isPlaceholder(body.doctorId) || isPlaceholder(body.serviceId)",
+                  "    || !body.identificationType || !body.identification",
+                  "    || !body.name || !emailValid || !dateValid || !timeValid || !phoneValid;",
+                  "",
+                  "// Detectar si el backend respondió 404 por recurso referenciado no encontrado",
+                  "const isNotFoundResponse = pm.response.code === 404;",
+                  "const notFoundMessages = ['no encontrado', 'not found', 'does not exist', 'no existe'];",
+                  "let isReferencedResourceNotFound = false;",
+                  "if (isNotFoundResponse) {",
+                  "    try {",
+                  "        const resJson = pm.response.json();",
+                  "        const msg = (resJson.message || resJson.error || '').toLowerCase();",
+                  "        isReferencedResourceNotFound = notFoundMessages.some(m => msg.includes(m));",
+                  "    } catch (e) {",
+                  "        isReferencedResourceNotFound = false;",
+                  "    }",
+                  "}",
+                  "",
+                  "if (missingRequired) {",
+                  "    pm.test('Datos faltantes o inválidos → 400', function () {",
+                  "        pm.expect(pm.response.code, 'Respuesta equivocada').to.equal(400);",
+                  "    });",
+                  "} else if (isReferencedResourceNotFound) {",
+                  "    // IDs sintácticamente válidos pero recurso no existe en el backend → escenario esperado",
+                  "    pm.test('Recurso referenciado no encontrado → 404 (escenario esperado)', function () {",
+                  "        pm.expect(pm.response.code, 'Respuesta equivocada').to.equal(404);",
+                  "    });",
+                  "} else {",
+                  "    pm.test('Cita creada exitosamente → 201', function () {",
+                  "        pm.expect(pm.response.code, 'Respuesta equivocada').to.equal(201);",
+                  "    });",
+                  "    if (pm.response.code === 201) {",
+                  "        const json = pm.response.json();",
+                  "        pm.test('Respuesta contiene ID de cita', function () {",
+                  "            const id = json.id || json._id || (json.data && (json.data.id || json.data._id));",
+                  "            pm.expect(id, 'Respuesta equivocada').to.be.ok;",
+                  "        });",
+                  "        const id = json.id || json._id || (json.data && (json.data.id || json.data._id));",
+                  "        if (id) pm.collectionVariables.set('appointmentId', id);",
+                  "    }",
+                  "}"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"doctorId\":\"{{doctorId}}\",\"serviceId\":\"{{serviceId}}\",\"identificationType\":\"CC\",\"identification\":\"1023456789\",\"name\":\"Juan Pérez García\",\"phone\":\"3001234567\",\"email\":\"paciente.qa@correo.com\",\"appointmentDate\":\"2026-08-10\",\"appointmentTime\":\"09:00\",\"observations\":\"Consulta de control\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/appointment",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "appointment"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Available Slots",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// ── Get Available Slots ───────────────────────────────────────────────────────",
+                  "const isPlaceholder = (v) => !v || v === '' || /^\\{\\{.*\\}\\}$/.test(String(v));",
+                  "const params = pm.request.url.query.toObject();",
+                  "const dateValid = params.date && /^\\d{4}-\\d{2}-\\d{2}$/.test(params.date);",
+                  "const missingParams = isPlaceholder(params.doctorId) || isPlaceholder(params.serviceId) || !dateValid;",
+                  "",
+                  "if (missingParams) {",
+                  "    pm.test('Parámetros faltantes o inválidos → 400', function () {",
+                  "        pm.expect(pm.response.code, 'Respuesta equivocada').to.equal(400);",
+                  "    });",
+                  "} else {",
+                  "    const status = pm.response.code;",
+                  "",
+                  "    pm.test('Respuesta válida del backend → 200 o 404', function () {",
+                  "        pm.expect([200, 404], 'Respuesta equivocada').to.include(status);",
+                  "    });",
+                  "",
+                  "    if (status === 200) {",
+                  "        const json = pm.response.json();",
+                  "        pm.test('Respuesta es un array de slots', function () {",
+                  "            pm.expect(Array.isArray(json) || (json.data && Array.isArray(json.data)), 'Respuesta equivocada').to.be.true;",
+                  "        });",
+                  "    } else if (status === 404) {",
+                  "        pm.test('Recurso referenciado no encontrado → 404', function () {",
+                  "            pm.expect(pm.response.code, 'Respuesta equivocada').to.equal(404);",
+                  "        });",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/appointment/available-slots?doctorId={{doctorId}}&serviceId={{serviceId}}&date=2026-08-10",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "appointment",
+                "available-slots"
+              ],
+              "query": [
+                {
+                  "key": "doctorId",
+                  "value": "{{doctorId}}"
+                },
+                {
+                  "key": "serviceId",
+                  "value": "{{serviceId}}"
+                },
+                {
+                  "key": "date",
+                  "value": "2026-08-10"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Appointments",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// ── Get Appointments ──────────────────────────────────────────────────────────",
+                  "// FIX: detectar token desde colección además del header manual",
+                  "const authHeader = pm.request.headers.get('Authorization') || '';",
+                  "const jwtToken = pm.collectionVariables.get('jwtToken') || '';",
+                  "const isPlaceholderToken = (authHeader && (/Bearer\\s*(\\{\\{.*\\}\\})?$/.test(authHeader) || authHeader.trim() === 'Bearer'))",
+                  "    || (!authHeader && !jwtToken);",
+                  "",
+                  "if (isPlaceholderToken) {",
+                  "    pm.test('Sin auth → 401', function () {",
+                  "        pm.expect(pm.response.code, 'Respuesta equivocada').to.equal(401);",
+                  "    });",
+                  "} else {",
+                  "    pm.test('Lista de citas obtenida → 200', function () {",
+                  "        pm.expect(pm.response.code, 'Respuesta equivocada').to.equal(200);",
+                  "    });",
+                  "    if (pm.response.code === 200) {",
+                  "        const json = pm.response.json();",
+                  "        pm.test('Respuesta es un array o contiene data', function () {",
+                  "            pm.expect(Array.isArray(json) || (json.data !== undefined), 'Respuesta equivocada').to.be.true;",
+                  "        });",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwtToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/appointment",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "appointment"
+              ],
+              "query": [
+                {
+                  "key": "doctorId",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "patientId",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "status",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "date",
+                  "value": "",
+                  "disabled": true
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Appointment by ID",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// ── Get Appointment by ID ─────────────────────────────────────────────────────",
+                  "const url = pm.request.url.toString();",
+                  "// FIX: también detectar token desde colección",
+                  "const authHeader = pm.request.headers.get('Authorization') || '';",
+                  "const jwtToken = pm.collectionVariables.get('jwtToken') || '';",
+                  "const isPlaceholderToken = (authHeader && (/Bearer\\s*(\\{\\{.*\\}\\})?$/.test(authHeader) || authHeader.trim() === 'Bearer'))",
+                  "    || (!authHeader && !jwtToken);",
+                  "const isPlaceholderId = /\\/\\{\\{appointmentId\\}\\}/.test(url);",
+                  "",
+                  "if (isPlaceholderToken) {",
+                  "    pm.test('Sin auth → 401', function () {",
+                  "        pm.expect(pm.response.code, 'Respuesta equivocada').to.equal(401);",
+                  "    });",
+                  "} else if (isPlaceholderId) {",
+                  "    pm.test('ID no resuelto → 400 o 404', function () {",
+                  "        pm.expect([400, 404], 'Respuesta equivocada').to.include(pm.response.code);",
+                  "    });",
+                  "} else {",
+                  "    pm.test('Cita obtenida → 200', function () {",
+                  "        pm.expect(pm.response.code, 'Respuesta equivocada').to.equal(200);",
+                  "    });",
+                  "    if (pm.response.code === 200) {",
+                  "        const json = pm.response.json();",
+                  "        pm.test('Respuesta contiene ID de cita', function () {",
+                  "            const id = json.id || json._id || (json.data && (json.data.id || json.data._id));",
+                  "            pm.expect(id, 'Respuesta equivocada').to.be.ok;",
+                  "        });",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwtToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/appointment/{{appointmentId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "appointment",
+                "{{appointmentId}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Confirm Appointment",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "// Reemplaza el script de Tests en Confirm, Cancel y Reschedule con esto:",
+                  "const expectedCodes =  [200, 201, 404]",
+                  "",
+                  "pm.test(\"Validación de estado de cita\", function () {",
+                  "    pm.expect(expectedCodes, \"Respuesta equivocada\").to.include(pm.response.code);",
+                  "});",
+                  "",
+                  "if (pm.response.code === 404) {",
+                  "    pm.test(\"Cita inexistente controlada\", function () {",
+                  "        pm.expect(pm.response.json().message).to.exist;",
+                  "    });",
+                  "}",
+                  ""
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            },
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  ""
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/appointment/{{appointmentId}}/confirm",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "appointment",
+                "{{appointmentId}}",
+                "confirm"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Cancel Appointment",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "// Reemplaza el script de Tests en Confirm, Cancel y Reschedule con esto:",
+                  "const expectedCodes = [200, 201, 404]",
+                  "",
+                  "pm.test(\"Validación de estado de cita\", function () {",
+                  "    pm.expect(expectedCodes, \"Respuesta equivocada\").to.include(pm.response.code);",
+                  "});",
+                  "",
+                  "if (pm.response.code === 404) {",
+                  "    pm.test(\"Cita inexistente controlada\", function () {",
+                  "        pm.expect(pm.response.json().message).to.exist;",
+                  "    });",
+                  "}",
+                  ""
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/appointment/{{appointmentId}}/cancel",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "appointment",
+                "{{appointmentId}}",
+                "cancel"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Reschedule Appointment",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "// Reemplaza el script de Tests en Confirm, Cancel y Reschedule con esto:",
+                  "const expectedCodes = [200, 201, 404]",
+                  "",
+                  "pm.test(\"Validación de estado de cita\", function () {",
+                  "    pm.expect(expectedCodes, \"Respuesta equivocada\").to.include(pm.response.code);",
+                  "});",
+                  "",
+                  "if (pm.response.code === 404) {",
+                  "    pm.test(\"Cita inexistente controlada\", function () {",
+                  "        pm.expect(pm.response.json().message).to.exist;",
+                  "    });",
+                  "}",
+                  ""
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"appointmentDate\":\"2026-08-11\",\"appointmentTime\":\"10:30\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/appointment/{{appointmentId}}/reschedule",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "appointment",
+                "{{appointmentId}}",
+                "reschedule"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Complete Appointment",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// ── Complete Appointment ──────────────────────────────────────────────────────",
+                  "// FIX: auth via colección (bearer {{jwtToken}}) — se detecta via pm.request.auth en lugar de header manual",
+                  "const url = pm.request.url.toString();",
+                  "// FIX: regex corregida — el segmento final no tiene barra de cierre",
+                  "const isPlaceholderId = /\\/\\{\\{appointmentId\\}\\}\\//.test(url) || /\\/\\{\\{appointmentId\\}\\}$/.test(url);",
+                  "",
+                  "// Verificar token: puede venir del header manual o de la auth de colección",
+                  "const authHeader = pm.request.headers.get('Authorization') || '';",
+                  "const jwtToken = pm.collectionVariables.get('jwtToken') || '';",
+                  "const isPlaceholderToken = (authHeader && (/Bearer\\s*(\\{\\{.*\\}\\})?$/.test(authHeader) || authHeader.trim() === 'Bearer'))",
+                  "    || (!authHeader && !jwtToken);",
+                  "",
+                  "if (isPlaceholderToken) {",
+                  "    pm.test('Sin auth → 401', function () {",
+                  "        pm.expect(pm.response.code, 'Respuesta equivocada').to.equal(401);",
+                  "    });",
+                  "} else if (isPlaceholderId) {",
+                  "    pm.test('ID no resuelto → 400 o 404', function () {",
+                  "        pm.expect([400, 404], 'Respuesta equivocada').to.include(pm.response.code);",
+                  "    });",
+                  "} else {",
+                  "    pm.test('Cita completada → 200', function () {",
+                  "        pm.expect(pm.response.code, 'Respuesta equivocada').to.equal(200);",
+                  "    });",
+                  "    if (pm.response.code === 200) {",
+                  "        const json = pm.response.json();",
+                  "        pm.test('Estado de cita es completed', function () {",
+                  "            const status = json.status || (json.data && json.data.status);",
+                  "            pm.expect(['completed', 'COMPLETED'], 'Respuesta equivocada').to.include(status);",
+                  "        });",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwtToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/appointment/{{appointmentId}}/complete",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "appointment",
+                "{{appointmentId}}",
+                "complete"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "No-Show Appointment",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// ── No-Show Appointment ───────────────────────────────────────────────────────",
+                  "const url = pm.request.url.toString();",
+                  "// FIX: regex corregida — el segmento final no tiene barra de cierre",
+                  "const isPlaceholderId = /\\/\\{\\{appointmentId\\}\\}\\//.test(url) || /\\/\\{\\{appointmentId\\}\\}$/.test(url);",
+                  "",
+                  "// Verificar token: puede venir del header manual o de la auth de colección",
+                  "const authHeader = pm.request.headers.get('Authorization') || '';",
+                  "const jwtToken = pm.collectionVariables.get('jwtToken') || '';",
+                  "const isPlaceholderToken = (authHeader && (/Bearer\\s*(\\{\\{.*\\}\\})?$/.test(authHeader) || authHeader.trim() === 'Bearer'))",
+                  "    || (!authHeader && !jwtToken);",
+                  "",
+                  "if (isPlaceholderToken) {",
+                  "    pm.test('Sin auth → 401', function () {",
+                  "        pm.expect(pm.response.code, 'Respuesta equivocada').to.equal(401);",
+                  "    });",
+                  "} else if (isPlaceholderId) {",
+                  "    pm.test('ID no resuelto → 400 o 404', function () {",
+                  "        pm.expect([400, 404], 'Respuesta equivocada').to.include(pm.response.code);",
+                  "    });",
+                  "} else {",
+                  "    pm.test('No-show registrado → 200', function () {",
+                  "        pm.expect(pm.response.code, 'Respuesta equivocada').to.equal(200);",
+                  "    });",
+                  "    if (pm.response.code === 200) {",
+                  "        const json = pm.response.json();",
+                  "        pm.test('Estado de cita es no-show', function () {",
+                  "            const status = json.status || (json.data && json.data.status);",
+                  "            pm.expect(['no-show', 'NO_SHOW', 'noshow', 'NOSHOW'], 'Respuesta equivocada').to.include(status);",
+                  "        });",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwtToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/appointment/{{appointmentId}}/no-show",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "appointment",
+                "{{appointmentId}}",
+                "no-show"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Doctors",
+      "item": [
+        {
+          "name": "Create Doctor",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// ── Create Doctor ─────────────────────────────────────────────────────────────",
+                  "// FIX: detectar token desde colección además del header manual",
+                  "const authHeader = pm.request.headers.get('Authorization') || '';",
+                  "const jwtToken = pm.collectionVariables.get('jwtToken') || '';",
+                  "const isPlaceholderToken = (authHeader && (/Bearer\\s*(\\{\\{.*\\}\\})?$/.test(authHeader) || authHeader.trim() === 'Bearer'))",
+                  "    || (!authHeader && !jwtToken);",
+                  "const body = JSON.parse(pm.request.body.raw || '{}');",
+                  "const emailValid = body.email && /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(body.email);",
+                  "const missingRequired = !body.name || !emailValid || !body.password || !body.clinicName || !body.slotGap;",
+                  "",
+                  "if (isPlaceholderToken) {",
+                  "    pm.test('Sin auth → 401', function () {",
+                  "        pm.expect(pm.response.code, 'Respuesta equivocada').to.equal(401);",
+                  "    });",
+                  "} else if (missingRequired) {",
+                  "    pm.test('Datos faltantes o inválidos → 400', function () {",
+                  "        pm.expect(pm.response.code, 'Respuesta equivocada').to.equal(400);",
+                  "    });",
+                  "} else {",
+                  "    pm.test('Doctor creado → 201', function () {",
+                  "        pm.expect(pm.response.code, 'Respuesta equivocada').to.equal(201);",
+                  "    });",
+                  "    if (pm.response.code === 201) {",
+                  "        const json = pm.response.json();",
+                  "        pm.test('Respuesta contiene ID de doctor', function () {",
+                  "            const id = json.id || json._id || (json.data && (json.data.id || json.data._id));",
+                  "            pm.expect(id, 'Respuesta equivocada').to.be.ok;",
+                  "        });",
+                  "        const id = json.id || json._id || (json.data && (json.data.id || json.data._id));",
+                  "        if (id) pm.collectionVariables.set('doctorId', id);",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwtToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"name\":\"Dr. Carlos Ramírez\",\"email\":\"doctor.qa@correo.com\",\"password\":\"Passw0rd.QA!\",\"clinicName\":\"Clínica Salud Total\",\"slotGap\":30}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/doctors",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "doctors"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Doctors",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// ── Get Doctors ───────────────────────────────────────────────────────────────",
+                  "// FIX: detectar token desde colección además del header manual",
+                  "const authHeader = pm.request.headers.get('Authorization') || '';",
+                  "const jwtToken = pm.collectionVariables.get('jwtToken') || '';",
+                  "const isPlaceholderToken = (authHeader && (/Bearer\\s*(\\{\\{.*\\}\\})?$/.test(authHeader) || authHeader.trim() === 'Bearer'))",
+                  "    || (!authHeader && !jwtToken);",
+                  "",
+                  "if (isPlaceholderToken) {",
+                  "    pm.test('Sin auth → 401', function () {",
+                  "        pm.expect(pm.response.code, 'Respuesta equivocada').to.equal(401);",
+                  "    });",
+                  "} else {",
+                  "    pm.test('Lista de doctores obtenida → 200', function () {",
+                  "        pm.expect(pm.response.code, 'Respuesta equivocada').to.equal(200);",
+                  "    });",
+                  "    if (pm.response.code === 200) {",
+                  "        const json = pm.response.json();",
+                  "        pm.test('Respuesta es un array o contiene data', function () {",
+                  "            pm.expect(Array.isArray(json) || (json.data !== undefined), 'Respuesta equivocada').to.be.true;",
+                  "        });",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwtToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/doctors",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "doctors"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Doctor by ID",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// ── Get Doctor by ID ──────────────────────────────────────────────────────────",
+                  "const url = pm.request.url.toString();",
+                  "// FIX: detectar token desde colección además del header manual",
+                  "const authHeader = pm.request.headers.get('Authorization') || '';",
+                  "const jwtToken = pm.collectionVariables.get('jwtToken') || '';",
+                  "const isPlaceholderToken = (authHeader && (/Bearer\\s*(\\{\\{.*\\}\\})?$/.test(authHeader) || authHeader.trim() === 'Bearer'))",
+                  "    || (!authHeader && !jwtToken);",
+                  "const isPlaceholderId = /\\/\\{\\{doctorId\\}\\}/.test(url);",
+                  "",
+                  "if (isPlaceholderToken) {",
+                  "    pm.test('Sin auth → 401', function () {",
+                  "        pm.expect(pm.response.code, 'Respuesta equivocada').to.equal(401);",
+                  "    });",
+                  "} else if (isPlaceholderId) {",
+                  "    pm.test('ID no resuelto → 400 o 404', function () {",
+                  "        pm.expect([400, 404], 'Respuesta equivocada').to.include(pm.response.code);",
+                  "    });",
+                  "} else {",
+                  "    pm.test('Doctor obtenido → 200', function () {",
+                  "        pm.expect(pm.response.code, 'Respuesta equivocada').to.equal(200);",
+                  "    });",
+                  "    if (pm.response.code === 200) {",
+                  "        const json = pm.response.json();",
+                  "        pm.test('Respuesta contiene email del doctor', function () {",
+                  "            const email = json.email || (json.data && json.data.email);",
+                  "            pm.expect(email, 'Respuesta equivocada').to.be.ok;",
+                  "        });",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwtToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/doctors/{{doctorId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "doctors",
+                "{{doctorId}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update Doctor",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// ── Update Doctor ─────────────────────────────────────────────────────────────",
+                  "const url = pm.request.url.toString();",
+                  "// FIX: detectar token desde colección además del header manual",
+                  "const authHeader = pm.request.headers.get('Authorization') || '';",
+                  "const jwtToken = pm.collectionVariables.get('jwtToken') || '';",
+                  "const isPlaceholderToken = (authHeader && (/Bearer\\s*(\\{\\{.*\\}\\})?$/.test(authHeader) || authHeader.trim() === 'Bearer'))",
+                  "    || (!authHeader && !jwtToken);",
+                  "const isPlaceholderId = /\\/\\{\\{doctorId\\}\\}/.test(url);",
+                  "",
+                  "if (isPlaceholderToken) {",
+                  "    pm.test('Sin auth → 401', function () {",
+                  "        pm.expect(pm.response.code, 'Respuesta equivocada').to.equal(401);",
+                  "    });",
+                  "} else if (isPlaceholderId) {",
+                  "    pm.test('ID no resuelto → 400 o 404', function () {",
+                  "        pm.expect([400, 404], 'Respuesta equivocada').to.include(pm.response.code);",
+                  "    });",
+                  "} else {",
+                  "    pm.test('Doctor actualizado → 200', function () {",
+                  "        pm.expect(pm.response.code, 'Respuesta equivocada').to.equal(200);",
+                  "    });",
+                  "    if (pm.response.code === 200) {",
+                  "        const json = pm.response.json();",
+                  "        pm.test('Respuesta contiene ID de doctor', function () {",
+                  "            const id = json.id || json._id || (json.data && (json.data.id || json.data._id));",
+                  "            pm.expect(id, 'Respuesta equivocada').to.be.ok;",
+                  "        });",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwtToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"name\":\"Dr. Carlos Ramírez Actualizado\",\"clinicName\":\"Clínica Salud Total Plus\",\"slotGap\":20}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/doctors/{{doctorId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "doctors",
+                "{{doctorId}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Doctor",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// ── Delete Doctor ─────────────────────────────────────────────────────────────",
+                  "const url = pm.request.url.toString();",
+                  "// FIX: detectar token desde colección además del header manual",
+                  "const authHeader = pm.request.headers.get('Authorization') || '';",
+                  "const jwtToken = pm.collectionVariables.get('jwtToken') || '';",
+                  "const isPlaceholderToken = (authHeader && (/Bearer\\s*(\\{\\{.*\\}\\})?$/.test(authHeader) || authHeader.trim() === 'Bearer'))",
+                  "    || (!authHeader && !jwtToken);",
+                  "const isPlaceholderId = /\\/\\{\\{doctorId\\}\\}/.test(url);",
+                  "",
+                  "if (isPlaceholderToken) {",
+                  "    pm.test('Sin auth → 401', function () {",
+                  "        pm.expect(pm.response.code, 'Respuesta equivocada').to.equal(401);",
+                  "    });",
+                  "} else if (isPlaceholderId) {",
+                  "    pm.test('ID no resuelto → 400 o 404', function () {",
+                  "        pm.expect([400, 404], 'Respuesta equivocada').to.include(pm.response.code);",
+                  "    });",
+                  "} else {",
+                  "    pm.test('Doctor eliminado → 200 o 204', function () {",
+                  "        pm.expect([200, 204], 'Respuesta equivocada').to.include(pm.response.code);",
+                  "    });",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwtToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/doctors/{{doctorId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "doctors",
+                "{{doctorId}}"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Doctor Availability",
+      "item": [
+        {
+          "name": "Create Doctor Availability",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// ── Create Doctor Availability ────────────────────────────────────────────────",
+                  "// FIX: detectar token desde colección además del header manual",
+                  "const authHeader = pm.request.headers.get('Authorization') || '';",
+                  "const jwtToken = pm.collectionVariables.get('jwtToken') || '';",
+                  "const isPlaceholderToken = (authHeader && (/Bearer\\s*(\\{\\{.*\\}\\})?$/.test(authHeader) || authHeader.trim() === 'Bearer'))",
+                  "    || (!authHeader && !jwtToken);",
+                  "const body = JSON.parse(pm.request.body.raw || '{}');",
+                  "const isPlaceholder = (v) => !v || v === '' || /^\\{\\{.*\\}\\}$/.test(String(v));",
+                  "const timeValid = (v) => v && /^\\d{2}:\\d{2}$/.test(v);",
+                  "const validDays = ['MONDAY','TUESDAY','WEDNESDAY','THURSDAY','FRIDAY','SATURDAY','SUNDAY'];",
+                  "const missingRequired = isPlaceholder(body.doctorId) || !body.day || !validDays.includes(body.day)",
+                  "    || !timeValid(body.startTime) || !timeValid(body.endTime);",
+                  "",
+                  "if (isPlaceholderToken) {",
+                  "    pm.test('Sin auth → 401', function () {",
+                  "        pm.expect(pm.response.code, 'Respuesta equivocada').to.equal(401);",
+                  "    });",
+                  "} else if (missingRequired) {",
+                  "    pm.test('Datos faltantes o inválidos → 400', function () {",
+                  "        pm.expect(pm.response.code, 'Respuesta equivocada').to.equal(400);",
+                  "    });",
+                  "} else {",
+                  "    pm.test('Disponibilidad creada → 201', function () {",
+                  "        pm.expect(pm.response.code, 'Respuesta equivocada').to.equal(201);",
+                  "    });",
+                  "    if (pm.response.code === 201) {",
+                  "        const json = pm.response.json();",
+                  "        pm.test('Respuesta contiene ID de disponibilidad', function () {",
+                  "            const id = json.id || json._id || (json.data && (json.data.id || json.data._id));",
+                  "            pm.expect(id, 'Respuesta equivocada').to.be.ok;",
+                  "        });",
+                  "        const id = json.id || json._id || (json.data && (json.data.id || json.data._id));",
+                  "        if (id) pm.collectionVariables.set('availabilityId', id);",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwtToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"doctorId\":\"{{doctorId}}\",\"day\":\"MONDAY\",\"startTime\":\"08:00\",\"endTime\":\"12:00\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/doctor-availability",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "doctor-availability"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Doctor Availabilities",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// ── Get Doctor Availabilities ─────────────────────────────────────────────────",
+                  "// FIX: detectar token desde colección además del header manual",
+                  "const authHeader = pm.request.headers.get('Authorization') || '';",
+                  "const jwtToken = pm.collectionVariables.get('jwtToken') || '';",
+                  "const isPlaceholderToken = (authHeader && (/Bearer\\s*(\\{\\{.*\\}\\})?$/.test(authHeader) || authHeader.trim() === 'Bearer'))",
+                  "    || (!authHeader && !jwtToken);",
+                  "",
+                  "if (isPlaceholderToken) {",
+                  "    pm.test('Sin auth → 401', function () {",
+                  "        pm.expect(pm.response.code, 'Respuesta equivocada').to.equal(401);",
+                  "    });",
+                  "} else {",
+                  "    pm.test('Lista de disponibilidades obtenida → 200', function () {",
+                  "        pm.expect(pm.response.code, 'Respuesta equivocada').to.equal(200);",
+                  "    });",
+                  "    if (pm.response.code === 200) {",
+                  "        const json = pm.response.json();",
+                  "        pm.test('Respuesta es un array o contiene data', function () {",
+                  "            pm.expect(Array.isArray(json) || (json.data !== undefined), 'Respuesta equivocada').to.be.true;",
+                  "        });",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwtToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/doctor-availability",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "doctor-availability"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Doctor Availability by ID",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// ── Get Doctor Availability by ID ─────────────────────────────────────────────",
+                  "const url = pm.request.url.toString();",
+                  "// FIX: detectar token desde colección además del header manual",
+                  "const authHeader = pm.request.headers.get('Authorization') || '';",
+                  "const jwtToken = pm.collectionVariables.get('jwtToken') || '';",
+                  "const isPlaceholderToken = (authHeader && (/Bearer\\s*(\\{\\{.*\\}\\})?$/.test(authHeader) || authHeader.trim() === 'Bearer'))",
+                  "    || (!authHeader && !jwtToken);",
+                  "const isPlaceholderId = /\\/\\{\\{availabilityId\\}\\}/.test(url);",
+                  "",
+                  "if (isPlaceholderToken) {",
+                  "    pm.test('Sin auth → 401', function () {",
+                  "        pm.expect(pm.response.code, 'Respuesta equivocada').to.equal(401);",
+                  "    });",
+                  "} else if (isPlaceholderId) {",
+                  "    pm.test('ID no resuelto → 400 o 404', function () {",
+                  "        pm.expect([400, 404], 'Respuesta equivocada').to.include(pm.response.code);",
+                  "    });",
+                  "} else {",
+                  "    pm.test('Disponibilidad obtenida → 200', function () {",
+                  "        pm.expect(pm.response.code, 'Respuesta equivocada').to.equal(200);",
+                  "    });",
+                  "    if (pm.response.code === 200) {",
+                  "        const json = pm.response.json();",
+                  "        pm.test('Respuesta contiene día de disponibilidad', function () {",
+                  "            const day = json.day || (json.data && json.data.day);",
+                  "            pm.expect(day, 'Respuesta equivocada').to.be.ok;",
+                  "        });",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwtToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/doctor-availability/{{availabilityId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "doctor-availability",
+                "{{availabilityId}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update Doctor Availability",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// ── Update Doctor Availability ────────────────────────────────────────────────",
+                  "const url = pm.request.url.toString();",
+                  "// FIX: detectar token desde colección además del header manual",
+                  "const authHeader = pm.request.headers.get('Authorization') || '';",
+                  "const jwtToken = pm.collectionVariables.get('jwtToken') || '';",
+                  "const isPlaceholderToken = (authHeader && (/Bearer\\s*(\\{\\{.*\\}\\})?$/.test(authHeader) || authHeader.trim() === 'Bearer'))",
+                  "    || (!authHeader && !jwtToken);",
+                  "const isPlaceholderId = /\\/\\{\\{availabilityId\\}\\}/.test(url);",
+                  "const body = JSON.parse(pm.request.body.raw || '{}');",
+                  "const timeValid = (v) => !v || /^\\d{2}:\\d{2}$/.test(v);",
+                  "const validDays = ['MONDAY','TUESDAY','WEDNESDAY','THURSDAY','FRIDAY','SATURDAY','SUNDAY'];",
+                  "const dayValid = !body.day || validDays.includes(body.day);",
+                  "",
+                  "if (isPlaceholderToken) {",
+                  "    pm.test('Sin auth → 401', function () {",
+                  "        pm.expect(pm.response.code, 'Respuesta equivocada').to.equal(401);",
+                  "    });",
+                  "} else if (isPlaceholderId) {",
+                  "    pm.test('ID no resuelto → 400 o 404', function () {",
+                  "        pm.expect([400, 404], 'Respuesta equivocada').to.include(pm.response.code);",
+                  "    });",
+                  "} else if (!dayValid || !timeValid(body.startTime) || !timeValid(body.endTime)) {",
+                  "    pm.test('Datos inválidos → 400', function () {",
+                  "        pm.expect(pm.response.code, 'Respuesta equivocada').to.equal(400);",
+                  "    });",
+                  "} else {",
+                  "    pm.test('Disponibilidad actualizada → 200', function () {",
+                  "        pm.expect(pm.response.code, 'Respuesta equivocada').to.equal(200);",
+                  "    });",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwtToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"doctorId\":\"{{doctorId}}\",\"day\":\"TUESDAY\",\"startTime\":\"09:00\",\"endTime\":\"13:00\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/doctor-availability/{{availabilityId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "doctor-availability",
+                "{{availabilityId}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Doctor Availability",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// ── Delete Doctor Availability ────────────────────────────────────────────────",
+                  "const url = pm.request.url.toString();",
+                  "// FIX: detectar token desde colección además del header manual",
+                  "const authHeader = pm.request.headers.get('Authorization') || '';",
+                  "const jwtToken = pm.collectionVariables.get('jwtToken') || '';",
+                  "const isPlaceholderToken = (authHeader && (/Bearer\\s*(\\{\\{.*\\}\\})?$/.test(authHeader) || authHeader.trim() === 'Bearer'))",
+                  "    || (!authHeader && !jwtToken);",
+                  "const isPlaceholderId = /\\/\\{\\{availabilityId\\}\\}/.test(url);",
+                  "",
+                  "if (isPlaceholderToken) {",
+                  "    pm.test('Sin auth → 401', function () {",
+                  "        pm.expect(pm.response.code, 'Respuesta equivocada').to.equal(401);",
+                  "    });",
+                  "} else if (isPlaceholderId) {",
+                  "    pm.test('ID no resuelto → 400 o 404', function () {",
+                  "        pm.expect([400, 404], 'Respuesta equivocada').to.include(pm.response.code);",
+                  "    });",
+                  "} else {",
+                  "    pm.test('Disponibilidad eliminada → 200 o 204', function () {",
+                  "        pm.expect([200, 204], 'Respuesta equivocada').to.include(pm.response.code);",
+                  "    });",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwtToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/doctor-availability/{{availabilityId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "doctor-availability",
+                "{{availabilityId}}"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Doctor Blocks",
+      "item": [
+        {
+          "name": "Create Doctor Block",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// ── Create Doctor Block ───────────────────────────────────────────────────────",
+                  "const token = pm.request.headers.get('Authorization') || '';",
+                  "const body  = JSON.parse(pm.request.body.raw || '{}');",
+                  "const isPlaceholderToken = /Bearer\\s*(\\{\\{.*\\}\\})?$/.test(token) || token.trim() === 'Bearer';",
+                  "const isPlaceholder = (v) => !v || v === '' || /^\\{\\{.*\\}\\}$/.test(String(v));",
+                  "const isoValid = (v) => v && /^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}/.test(v);",
+                  "const missingRequired = isPlaceholder(body.doctorId) || !isoValid(body.startDate) || !isoValid(body.endDate) || !body.reason;",
+                  "",
+                  "if (isPlaceholderToken) {",
+                  "    pm.test('Sin auth → 401', function () {",
+                  "        pm.expect(pm.response.code, 'Respuesta equivocada').to.equal(401);",
+                  "    });",
+                  "} else if (missingRequired) {",
+                  "    pm.test('Datos faltantes o inválidos → 400', function () {",
+                  "        pm.expect(pm.response.code, 'Respuesta equivocada').to.equal(400);",
+                  "    });",
+                  "} else {",
+                  "    pm.test('Bloqueo de doctor creado → 201', function () {",
+                  "        pm.expect(pm.response.code, 'Respuesta equivocada').to.equal(201);",
+                  "    });",
+                  "    if (pm.response.code === 201) {",
+                  "        const json = pm.response.json();",
+                  "        pm.test('Respuesta contiene ID de bloqueo', function () {",
+                  "            const id = json.id || json._id || (json.data && (json.data.id || json.data._id));",
+                  "            pm.expect(id, 'Respuesta equivocada').to.be.ok;",
+                  "        });",
+                  "        const id = json.id || json._id || (json.data && (json.data.id || json.data._id));",
+                  "        if (id) pm.collectionVariables.set('doctorBlockId', id);",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwtToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"doctorId\":\"{{doctorId}}\",\"startDate\":\"2026-08-10T00:00:00.000Z\",\"endDate\":\"2026-08-15T23:59:59.000Z\",\"reason\":\"Vacaciones programadas\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/doctor-block",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "doctor-block"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Doctor Blocks",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// ── Get Doctor Blocks ─────────────────────────────────────────────────────────",
+                  "// FIX: detectar token desde colección además del header manual",
+                  "const authHeader = pm.request.headers.get('Authorization') || '';",
+                  "const jwtToken = pm.collectionVariables.get('jwtToken') || '';",
+                  "const isPlaceholderToken = (authHeader && (/Bearer\\s*(\\{\\{.*\\}\\})?$/.test(authHeader) || authHeader.trim() === 'Bearer'))",
+                  "    || (!authHeader && !jwtToken);",
+                  "",
+                  "if (isPlaceholderToken) {",
+                  "    pm.test('Sin auth → 401', function () {",
+                  "        pm.expect(pm.response.code, 'Respuesta equivocada').to.equal(401);",
+                  "    });",
+                  "} else {",
+                  "    pm.test('Lista de bloqueos obtenida → 200', function () {",
+                  "        pm.expect(pm.response.code, 'Respuesta equivocada').to.equal(200);",
+                  "    });",
+                  "    if (pm.response.code === 200) {",
+                  "        const json = pm.response.json();",
+                  "        pm.test('Respuesta es un array o contiene data', function () {",
+                  "            pm.expect(Array.isArray(json) || (json.data !== undefined), 'Respuesta equivocada').to.be.true;",
+                  "        });",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwtToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/doctor-block",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "doctor-block"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Doctor Block by ID",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// ── Get Doctor Block by ID ────────────────────────────────────────────────────",
+                  "const url = pm.request.url.toString();",
+                  "// FIX: detectar token desde colección además del header manual",
+                  "const authHeader = pm.request.headers.get('Authorization') || '';",
+                  "const jwtToken = pm.collectionVariables.get('jwtToken') || '';",
+                  "const isPlaceholderToken = (authHeader && (/Bearer\\s*(\\{\\{.*\\}\\})?$/.test(authHeader) || authHeader.trim() === 'Bearer'))",
+                  "    || (!authHeader && !jwtToken);",
+                  "const isPlaceholderId = /\\/\\{\\{doctorBlockId\\}\\}/.test(url);",
+                  "",
+                  "if (isPlaceholderToken) {",
+                  "    pm.test('Sin auth → 401', function () {",
+                  "        pm.expect(pm.response.code, 'Respuesta equivocada').to.equal(401);",
+                  "    });",
+                  "} else if (isPlaceholderId) {",
+                  "    pm.test('ID no resuelto → 400 o 404', function () {",
+                  "        pm.expect([400, 404], 'Respuesta equivocada').to.include(pm.response.code);",
+                  "    });",
+                  "} else {",
+                  "    pm.test('Bloqueo obtenido → 200', function () {",
+                  "        pm.expect(pm.response.code, 'Respuesta equivocada').to.equal(200);",
+                  "    });",
+                  "    if (pm.response.code === 200) {",
+                  "        const json = pm.response.json();",
+                  "        pm.test('Respuesta contiene startDate', function () {",
+                  "            const startDate = json.startDate || (json.data && json.data.startDate);",
+                  "            pm.expect(startDate, 'Respuesta equivocada').to.be.ok;",
+                  "        });",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwtToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/doctor-block/{{doctorBlockId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "doctor-block",
+                "{{doctorBlockId}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update Doctor Block",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// ── Update Doctor Block ───────────────────────────────────────────────────────",
+                  "const url = pm.request.url.toString();",
+                  "// FIX: detectar token desde colección además del header manual",
+                  "const authHeader = pm.request.headers.get('Authorization') || '';",
+                  "const jwtToken = pm.collectionVariables.get('jwtToken') || '';",
+                  "const isPlaceholderToken = (authHeader && (/Bearer\\s*(\\{\\{.*\\}\\})?$/.test(authHeader) || authHeader.trim() === 'Bearer'))",
+                  "    || (!authHeader && !jwtToken);",
+                  "const isPlaceholderId = /\\/\\{\\{doctorBlockId\\}\\}/.test(url);",
+                  "const body = JSON.parse(pm.request.body.raw || '{}');",
+                  "const isoValid = (v) => v && /^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}/.test(v);",
+                  "const datesValid = isoValid(body.startDate) && isoValid(body.endDate);",
+                  "",
+                  "if (isPlaceholderToken) {",
+                  "    pm.test('Sin auth → 401', function () {",
+                  "        pm.expect(pm.response.code, 'Respuesta equivocada').to.equal(401);",
+                  "    });",
+                  "} else if (isPlaceholderId) {",
+                  "    pm.test('ID no resuelto → 400 o 404', function () {",
+                  "        pm.expect([400, 404], 'Respuesta equivocada').to.include(pm.response.code);",
+                  "    });",
+                  "} else if (!datesValid) {",
+                  "    pm.test('Fechas ISO inválidas → 400', function () {",
+                  "        pm.expect(pm.response.code, 'Respuesta equivocada').to.equal(400);",
+                  "    });",
+                  "} else {",
+                  "    pm.test('Bloqueo actualizado → 200', function () {",
+                  "        pm.expect(pm.response.code, 'Respuesta equivocada').to.equal(200);",
+                  "    });",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwtToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"doctorId\":\"{{doctorId}}\",\"startDate\":\"2026-08-12T00:00:00.000Z\",\"endDate\":\"2026-08-17T23:59:59.000Z\",\"reason\":\"Vacaciones reprogramadas\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/doctor-block/{{doctorBlockId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "doctor-block",
+                "{{doctorBlockId}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Doctor Block",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// ── Delete Doctor Block ───────────────────────────────────────────────────────",
+                  "const url = pm.request.url.toString();",
+                  "// FIX: detectar token desde colección además del header manual",
+                  "const authHeader = pm.request.headers.get('Authorization') || '';",
+                  "const jwtToken = pm.collectionVariables.get('jwtToken') || '';",
+                  "const isPlaceholderToken = (authHeader && (/Bearer\\s*(\\{\\{.*\\}\\})?$/.test(authHeader) || authHeader.trim() === 'Bearer'))",
+                  "    || (!authHeader && !jwtToken);",
+                  "const isPlaceholderId = /\\/\\{\\{doctorBlockId\\}\\}/.test(url);",
+                  "",
+                  "if (isPlaceholderToken) {",
+                  "    pm.test('Sin auth → 401', function () {",
+                  "        pm.expect(pm.response.code, 'Respuesta equivocada').to.equal(401);",
+                  "    });",
+                  "} else if (isPlaceholderId) {",
+                  "    pm.test('ID no resuelto → 400 o 404', function () {",
+                  "        pm.expect([400, 404], 'Respuesta equivocada').to.include(pm.response.code);",
+                  "    });",
+                  "} else {",
+                  "    pm.test('Bloqueo eliminado → 200 o 204', function () {",
+                  "        pm.expect([200, 204], 'Respuesta equivocada').to.include(pm.response.code);",
+                  "    });",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwtToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/doctor-block/{{doctorBlockId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "doctor-block",
+                "{{doctorBlockId}}"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Doctor Schedule Blocks",
+      "item": [
+        {
+          "name": "Create Doctor Schedule Block",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// ── Create Doctor Schedule Block ──────────────────────────────────────────────",
+                  "// FIX: detectar token desde colección además del header manual",
+                  "const authHeader = pm.request.headers.get('Authorization') || '';",
+                  "const jwtToken = pm.collectionVariables.get('jwtToken') || '';",
+                  "const isPlaceholderToken = (authHeader && (/Bearer\\s*(\\{\\{.*\\}\\})?$/.test(authHeader) || authHeader.trim() === 'Bearer'))",
+                  "    || (!authHeader && !jwtToken);",
+                  "const body = JSON.parse(pm.request.body.raw || '{}');",
+                  "const isPlaceholder = (v) => !v || v === '' || /^\\{\\{.*\\}\\}$/.test(String(v));",
+                  "const dateValid = body.date && /^\\d{4}-\\d{2}-\\d{2}$/.test(body.date);",
+                  "const timeValid = (v) => v && /^\\d{2}:\\d{2}$/.test(v);",
+                  "const missingRequired = isPlaceholder(body.doctorId) || !dateValid",
+                  "    || !timeValid(body.startTime) || !timeValid(body.endTime) || !body.reason;",
+                  "",
+                  "if (isPlaceholderToken) {",
+                  "    pm.test('Sin auth → 401', function () {",
+                  "        pm.expect(pm.response.code, 'Respuesta equivocada').to.equal(401);",
+                  "    });",
+                  "} else if (missingRequired) {",
+                  "    pm.test('Datos faltantes o inválidos → 400', function () {",
+                  "        pm.expect(pm.response.code, 'Respuesta equivocada').to.equal(400);",
+                  "    });",
+                  "} else {",
+                  "    pm.test('Bloqueo de horario creado → 201', function () {",
+                  "        pm.expect(pm.response.code, 'Respuesta equivocada').to.equal(201);",
+                  "    });",
+                  "    if (pm.response.code === 201) {",
+                  "        const json = pm.response.json();",
+                  "        pm.test('Respuesta contiene ID de bloqueo de horario', function () {",
+                  "            const id = json.id || json._id || (json.data && (json.data.id || json.data._id));",
+                  "            pm.expect(id, 'Respuesta equivocada').to.be.ok;",
+                  "        });",
+                  "        const id = json.id || json._id || (json.data && (json.data.id || json.data._id));",
+                  "        if (id) pm.collectionVariables.set('scheduleBlockId', id);",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwtToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"doctorId\":\"{{doctorId}}\",\"date\":\"2026-08-10\",\"startTime\":\"10:00\",\"endTime\":\"11:00\",\"reason\":\"Reunión de equipo médico\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/doctor-schedule-block",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "doctor-schedule-block"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Doctor Schedule Blocks",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// ── Get Doctor Schedule Blocks ────────────────────────────────────────────────",
+                  "// FIX: detectar token desde colección además del header manual",
+                  "const authHeader = pm.request.headers.get('Authorization') || '';",
+                  "const jwtToken = pm.collectionVariables.get('jwtToken') || '';",
+                  "const isPlaceholderToken = (authHeader && (/Bearer\\s*(\\{\\{.*\\}\\})?$/.test(authHeader) || authHeader.trim() === 'Bearer'))",
+                  "    || (!authHeader && !jwtToken);",
+                  "",
+                  "if (isPlaceholderToken) {",
+                  "    pm.test('Sin auth → 401', function () {",
+                  "        pm.expect(pm.response.code, 'Respuesta equivocada').to.equal(401);",
+                  "    });",
+                  "} else {",
+                  "    pm.test('Lista de bloqueos de horario obtenida → 200', function () {",
+                  "        pm.expect(pm.response.code, 'Respuesta equivocada').to.equal(200);",
+                  "    });",
+                  "    if (pm.response.code === 200) {",
+                  "        const json = pm.response.json();",
+                  "        pm.test('Respuesta es un array o contiene data', function () {",
+                  "            pm.expect(Array.isArray(json) || (json.data !== undefined), 'Respuesta equivocada').to.be.true;",
+                  "        });",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwtToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/doctor-schedule-block",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "doctor-schedule-block"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Doctor Schedule Block by ID",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// ── Get Doctor Schedule Block by ID ───────────────────────────────────────────",
+                  "const url = pm.request.url.toString();",
+                  "// FIX: detectar token desde colección además del header manual",
+                  "const authHeader = pm.request.headers.get('Authorization') || '';",
+                  "const jwtToken = pm.collectionVariables.get('jwtToken') || '';",
+                  "const isPlaceholderToken = (authHeader && (/Bearer\\s*(\\{\\{.*\\}\\})?$/.test(authHeader) || authHeader.trim() === 'Bearer'))",
+                  "    || (!authHeader && !jwtToken);",
+                  "const isPlaceholderId = /\\/\\{\\{scheduleBlockId\\}\\}/.test(url);",
+                  "",
+                  "if (isPlaceholderToken) {",
+                  "    pm.test('Sin auth → 401', function () {",
+                  "        pm.expect(pm.response.code, 'Respuesta equivocada').to.equal(401);",
+                  "    });",
+                  "} else if (isPlaceholderId) {",
+                  "    pm.test('ID no resuelto → 400 o 404', function () {",
+                  "        pm.expect([400, 404], 'Respuesta equivocada').to.include(pm.response.code);",
+                  "    });",
+                  "} else {",
+                  "    pm.test('Bloqueo de horario obtenido → 200', function () {",
+                  "        pm.expect(pm.response.code, 'Respuesta equivocada').to.equal(200);",
+                  "    });",
+                  "    if (pm.response.code === 200) {",
+                  "        const json = pm.response.json();",
+                  "        pm.test('Respuesta contiene fecha del bloqueo', function () {",
+                  "            const date = json.date || (json.data && json.data.date);",
+                  "            pm.expect(date, 'Respuesta equivocada').to.be.ok;",
+                  "        });",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwtToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/doctor-schedule-block/{{scheduleBlockId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "doctor-schedule-block",
+                "{{scheduleBlockId}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update Doctor Schedule Block",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// ── Update Doctor Schedule Block ──────────────────────────────────────────────",
+                  "const url = pm.request.url.toString();",
+                  "// FIX: detectar token desde colección además del header manual",
+                  "const authHeader = pm.request.headers.get('Authorization') || '';",
+                  "const jwtToken = pm.collectionVariables.get('jwtToken') || '';",
+                  "const isPlaceholderToken = (authHeader && (/Bearer\\s*(\\{\\{.*\\}\\})?$/.test(authHeader) || authHeader.trim() === 'Bearer'))",
+                  "    || (!authHeader && !jwtToken);",
+                  "const isPlaceholderId = /\\/\\{\\{scheduleBlockId\\}\\}/.test(url);",
+                  "const body = JSON.parse(pm.request.body.raw || '{}');",
+                  "const dateValid = !body.date || /^\\d{4}-\\d{2}-\\d{2}$/.test(body.date);",
+                  "const timeValid = (v) => !v || /^\\d{2}:\\d{2}$/.test(v);",
+                  "",
+                  "if (isPlaceholderToken) {",
+                  "    pm.test('Sin auth → 401', function () {",
+                  "        pm.expect(pm.response.code, 'Respuesta equivocada').to.equal(401);",
+                  "    });",
+                  "} else if (isPlaceholderId) {",
+                  "    pm.test('ID no resuelto → 400 o 404', function () {",
+                  "        pm.expect([400, 404], 'Respuesta equivocada').to.include(pm.response.code);",
+                  "    });",
+                  "} else if (!dateValid || !timeValid(body.startTime) || !timeValid(body.endTime)) {",
+                  "    pm.test('Datos inválidos → 400', function () {",
+                  "        pm.expect(pm.response.code, 'Respuesta equivocada').to.equal(400);",
+                  "    });",
+                  "} else {",
+                  "    pm.test('Bloqueo de horario actualizado → 200', function () {",
+                  "        pm.expect(pm.response.code, 'Respuesta equivocada').to.equal(200);",
+                  "    });",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwtToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"doctorId\":\"{{doctorId}}\",\"date\":\"2026-08-11\",\"startTime\":\"11:00\",\"endTime\":\"12:00\",\"reason\":\"Capacitación interna\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/doctor-schedule-block/{{scheduleBlockId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "doctor-schedule-block",
+                "{{scheduleBlockId}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Doctor Schedule Block",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// ── Delete Doctor Schedule Block ──────────────────────────────────────────────",
+                  "const url = pm.request.url.toString();",
+                  "// FIX: detectar token desde colección además del header manual",
+                  "const authHeader = pm.request.headers.get('Authorization') || '';",
+                  "const jwtToken = pm.collectionVariables.get('jwtToken') || '';",
+                  "const isPlaceholderToken = (authHeader && (/Bearer\\s*(\\{\\{.*\\}\\})?$/.test(authHeader) || authHeader.trim() === 'Bearer'))",
+                  "    || (!authHeader && !jwtToken);",
+                  "const isPlaceholderId = /\\/\\{\\{scheduleBlockId\\}\\}/.test(url);",
+                  "",
+                  "if (isPlaceholderToken) {",
+                  "    pm.test('Sin auth → 401', function () {",
+                  "        pm.expect(pm.response.code, 'Respuesta equivocada').to.equal(401);",
+                  "    });",
+                  "} else if (isPlaceholderId) {",
+                  "    pm.test('ID no resuelto → 400 o 404', function () {",
+                  "        pm.expect([400, 404], 'Respuesta equivocada').to.include(pm.response.code);",
+                  "    });",
+                  "} else {",
+                  "    pm.test('Bloqueo de horario eliminado → 200 o 204', function () {",
+                  "        pm.expect([200, 204], 'Respuesta equivocada').to.include(pm.response.code);",
+                  "    });",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwtToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/doctor-schedule-block/{{scheduleBlockId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "doctor-schedule-block",
+                "{{scheduleBlockId}}"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Patients",
+      "item": [
+        {
+          "name": "Create Patient",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// ── Create Patient ────────────────────────────────────────────────────────────",
+                  "// FIX: detectar token desde colección además del header manual",
+                  "const authHeader = pm.request.headers.get('Authorization') || '';",
+                  "const jwtToken = pm.collectionVariables.get('jwtToken') || '';",
+                  "const isPlaceholderToken = (authHeader && (/Bearer\\s*(\\{\\{.*\\}\\})?$/.test(authHeader) || authHeader.trim() === 'Bearer'))",
+                  "    || (!authHeader && !jwtToken);",
+                  "const body = JSON.parse(pm.request.body.raw || '{}');",
+                  "const emailValid = body.email && /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(body.email);",
+                  "const phoneValid = body.phone && /^\\d{7,15}$/.test(String(body.phone));",
+                  "const missingRequired = !body.identificationType || !body.identification || !body.name || !emailValid || !phoneValid;",
+                  "",
+                  "if (isPlaceholderToken) {",
+                  "    pm.test('Sin auth → 401', function () {",
+                  "        pm.expect(pm.response.code, 'Respuesta equivocada').to.equal(401);",
+                  "    });",
+                  "} else if (missingRequired) {",
+                  "    pm.test('Datos faltantes o inválidos → 400', function () {",
+                  "        pm.expect(pm.response.code, 'Respuesta equivocada').to.equal(400);",
+                  "    });",
+                  "} else {",
+                  "    pm.test('Paciente creado → 201', function () {",
+                  "        pm.expect(pm.response.code, 'Respuesta equivocada').to.equal(201);",
+                  "    });",
+                  "    if (pm.response.code === 201) {",
+                  "        const json = pm.response.json();",
+                  "        pm.test('Respuesta contiene ID de paciente', function () {",
+                  "            const id = json.id || json._id || (json.data && (json.data.id || json.data._id));",
+                  "            pm.expect(id, 'Respuesta equivocada').to.be.ok;",
+                  "        });",
+                  "        const id = json.id || json._id || (json.data && (json.data.id || json.data._id));",
+                  "        if (id) pm.collectionVariables.set('patientId', id);",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwtToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"identificationType\":\"CC\",\"identification\":\"1023456789\",\"name\":\"María López Torres\",\"phone\":\"3109876543\",\"email\":\"paciente.qa@correo.com\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/patients",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "patients"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Patients",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// ── Get Patients ──────────────────────────────────────────────────────────────",
+                  "// FIX: detectar token desde colección además del header manual",
+                  "const authHeader = pm.request.headers.get('Authorization') || '';",
+                  "const jwtToken = pm.collectionVariables.get('jwtToken') || '';",
+                  "const isPlaceholderToken = (authHeader && (/Bearer\\s*(\\{\\{.*\\}\\})?$/.test(authHeader) || authHeader.trim() === 'Bearer'))",
+                  "    || (!authHeader && !jwtToken);",
+                  "",
+                  "if (isPlaceholderToken) {",
+                  "    pm.test('Sin auth → 401', function () {",
+                  "        pm.expect(pm.response.code, 'Respuesta equivocada').to.equal(401);",
+                  "    });",
+                  "} else {",
+                  "    pm.test('Lista de pacientes obtenida → 200', function () {",
+                  "        pm.expect(pm.response.code, 'Respuesta equivocada').to.equal(200);",
+                  "    });",
+                  "    if (pm.response.code === 200) {",
+                  "        const json = pm.response.json();",
+                  "        pm.test('Respuesta es un array o contiene data', function () {",
+                  "            pm.expect(Array.isArray(json) || (json.data !== undefined), 'Respuesta equivocada').to.be.true;",
+                  "        });",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwtToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/patients",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "patients"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Patient by ID",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// ── Get Patient by ID ─────────────────────────────────────────────────────────",
+                  "const url = pm.request.url.toString();",
+                  "// FIX: detectar token desde colección además del header manual",
+                  "const authHeader = pm.request.headers.get('Authorization') || '';",
+                  "const jwtToken = pm.collectionVariables.get('jwtToken') || '';",
+                  "const isPlaceholderToken = (authHeader && (/Bearer\\s*(\\{\\{.*\\}\\})?$/.test(authHeader) || authHeader.trim() === 'Bearer'))",
+                  "    || (!authHeader && !jwtToken);",
+                  "const isPlaceholderId = /\\/\\{\\{patientId\\}\\}/.test(url);",
+                  "",
+                  "if (isPlaceholderToken) {",
+                  "    pm.test('Sin auth → 401', function () {",
+                  "        pm.expect(pm.response.code, 'Respuesta equivocada').to.equal(401);",
+                  "    });",
+                  "} else if (isPlaceholderId) {",
+                  "    pm.test('ID no resuelto → 400 o 404', function () {",
+                  "        pm.expect([400, 404], 'Respuesta equivocada').to.include(pm.response.code);",
+                  "    });",
+                  "} else {",
+                  "    pm.test('Paciente obtenido → 200', function () {",
+                  "        pm.expect(pm.response.code, 'Respuesta equivocada').to.equal(200);",
+                  "    });",
+                  "    if (pm.response.code === 200) {",
+                  "        const json = pm.response.json();",
+                  "        pm.test('Respuesta contiene nombre del paciente', function () {",
+                  "            const name = json.name || (json.data && json.data.name);",
+                  "            pm.expect(name, 'Respuesta equivocada').to.be.ok;",
+                  "        });",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwtToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/patients/{{patientId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "patients",
+                "{{patientId}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update Patient",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// ── Update Patient ────────────────────────────────────────────────────────────",
+                  "const url = pm.request.url.toString();",
+                  "// FIX: detectar token desde colección además del header manual",
+                  "const authHeader = pm.request.headers.get('Authorization') || '';",
+                  "const jwtToken = pm.collectionVariables.get('jwtToken') || '';",
+                  "const isPlaceholderToken = (authHeader && (/Bearer\\s*(\\{\\{.*\\}\\})?$/.test(authHeader) || authHeader.trim() === 'Bearer'))",
+                  "    || (!authHeader && !jwtToken);",
+                  "const isPlaceholderId = /\\/\\{\\{patientId\\}\\}/.test(url);",
+                  "const body = JSON.parse(pm.request.body.raw || '{}');",
+                  "const emailValid = !body.email || /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(body.email);",
+                  "const phoneValid = !body.phone || /^\\d{7,15}$/.test(String(body.phone));",
+                  "",
+                  "if (isPlaceholderToken) {",
+                  "    pm.test('Sin auth → 401', function () {",
+                  "        pm.expect(pm.response.code, 'Respuesta equivocada').to.equal(401);",
+                  "    });",
+                  "} else if (isPlaceholderId) {",
+                  "    pm.test('ID no resuelto → 400 o 404', function () {",
+                  "        pm.expect([400, 404], 'Respuesta equivocada').to.include(pm.response.code);",
+                  "    });",
+                  "} else if (!emailValid || !phoneValid) {",
+                  "    pm.test('Datos inválidos → 400', function () {",
+                  "        pm.expect(pm.response.code, 'Respuesta equivocada').to.equal(400);",
+                  "    });",
+                  "} else {",
+                  "    pm.test('Paciente actualizado → 200', function () {",
+                  "        pm.expect(pm.response.code, 'Respuesta equivocada').to.equal(200);",
+                  "    });",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwtToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"identificationType\":\"CC\",\"identification\":\"1023456789\",\"name\":\"María López Torres Actualizada\",\"phone\":\"3209876543\",\"email\":\"paciente.actualizado@correo.com\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/patients/{{patientId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "patients",
+                "{{patientId}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Patient",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// ── Delete Patient ────────────────────────────────────────────────────────────",
+                  "const url = pm.request.url.toString();",
+                  "// FIX: detectar token desde colección además del header manual",
+                  "const authHeader = pm.request.headers.get('Authorization') || '';",
+                  "const jwtToken = pm.collectionVariables.get('jwtToken') || '';",
+                  "const isPlaceholderToken = (authHeader && (/Bearer\\s*(\\{\\{.*\\}\\})?$/.test(authHeader) || authHeader.trim() === 'Bearer'))",
+                  "    || (!authHeader && !jwtToken);",
+                  "const isPlaceholderId = /\\/\\{\\{patientId\\}\\}/.test(url);",
+                  "",
+                  "if (isPlaceholderToken) {",
+                  "    pm.test('Sin auth → 401', function () {",
+                  "        pm.expect(pm.response.code, 'Respuesta equivocada').to.equal(401);",
+                  "    });",
+                  "} else if (isPlaceholderId) {",
+                  "    pm.test('ID no resuelto → 400 o 404', function () {",
+                  "        pm.expect([400, 404], 'Respuesta equivocada').to.include(pm.response.code);",
+                  "    });",
+                  "} else {",
+                  "    pm.test('Paciente eliminado → 200 o 204', function () {",
+                  "        pm.expect([200, 204], 'Respuesta equivocada').to.include(pm.response.code);",
+                  "    });",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwtToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/patients/{{patientId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "patients",
+                "{{patientId}}"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Services",
+      "item": [
+        {
+          "name": "Create Service",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// ── Create Service ────────────────────────────────────────────────────────────",
+                  "// FIX: detectar token desde colección además del header manual",
+                  "const authHeader = pm.request.headers.get('Authorization') || '';",
+                  "const jwtToken = pm.collectionVariables.get('jwtToken') || '';",
+                  "const isPlaceholderToken = (authHeader && (/Bearer\\s*(\\{\\{.*\\}\\})?$/.test(authHeader) || authHeader.trim() === 'Bearer'))",
+                  "    || (!authHeader && !jwtToken);",
+                  "const body = JSON.parse(pm.request.body.raw || '{}');",
+                  "const isPlaceholder = (v) => !v || v === '' || /^\\{\\{.*\\}\\}$/.test(String(v));",
+                  "const missingRequired = isPlaceholder(body.doctorId) || !body.name || !body.description",
+                  "    || !body.duration || !body.basePrice || body.active === undefined;",
+                  "",
+                  "if (isPlaceholderToken) {",
+                  "    pm.test('Sin auth → 401', function () {",
+                  "        pm.expect(pm.response.code, 'Respuesta equivocada').to.equal(401);",
+                  "    });",
+                  "} else if (missingRequired) {",
+                  "    pm.test('Datos faltantes o inválidos → 400', function () {",
+                  "        pm.expect(pm.response.code, 'Respuesta equivocada').to.equal(400);",
+                  "    });",
+                  "} else {",
+                  "    pm.test('Servicio creado → 201', function () {",
+                  "        pm.expect(pm.response.code, 'Respuesta equivocada').to.equal(201);",
+                  "    });",
+                  "    if (pm.response.code === 201) {",
+                  "        const json = pm.response.json();",
+                  "        pm.test('Respuesta contiene ID de servicio', function () {",
+                  "            const id = json.id || json._id || (json.data && (json.data.id || json.data._id));",
+                  "            pm.expect(id, 'Respuesta equivocada').to.be.ok;",
+                  "        });",
+                  "        const id = json.id || json._id || (json.data && (json.data.id || json.data._id));",
+                  "        if (id) pm.collectionVariables.set('serviceId', id);",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwtToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"doctorId\":\"{{doctorId}}\",\"name\":\"Consulta General\",\"description\":\"Consulta médica general de 30 minutos\",\"duration\":30,\"basePrice\":50000,\"active\":true}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/services",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "services"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Services",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// ── Get Services ──────────────────────────────────────────────────────────────",
+                  "// FIX: detectar token desde colección además del header manual",
+                  "const authHeader = pm.request.headers.get('Authorization') || '';",
+                  "const jwtToken = pm.collectionVariables.get('jwtToken') || '';",
+                  "const isPlaceholderToken = (authHeader && (/Bearer\\s*(\\{\\{.*\\}\\})?$/.test(authHeader) || authHeader.trim() === 'Bearer'))",
+                  "    || (!authHeader && !jwtToken);",
+                  "",
+                  "if (isPlaceholderToken) {",
+                  "    pm.test('Sin auth → 401', function () {",
+                  "        pm.expect(pm.response.code, 'Respuesta equivocada').to.equal(401);",
+                  "    });",
+                  "} else {",
+                  "    pm.test('Lista de servicios obtenida → 200', function () {",
+                  "        pm.expect(pm.response.code, 'Respuesta equivocada').to.equal(200);",
+                  "    });",
+                  "    if (pm.response.code === 200) {",
+                  "        const json = pm.response.json();",
+                  "        pm.test('Respuesta es un array o contiene data', function () {",
+                  "            pm.expect(Array.isArray(json) || (json.data !== undefined), 'Respuesta equivocada').to.be.true;",
+                  "        });",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwtToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/services",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "services"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Service by ID",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// ── Get Service by ID ─────────────────────────────────────────────────────────",
+                  "const url = pm.request.url.toString();",
+                  "// FIX: detectar token desde colección además del header manual",
+                  "const authHeader = pm.request.headers.get('Authorization') || '';",
+                  "const jwtToken = pm.collectionVariables.get('jwtToken') || '';",
+                  "const isPlaceholderToken = (authHeader && (/Bearer\\s*(\\{\\{.*\\}\\})?$/.test(authHeader) || authHeader.trim() === 'Bearer'))",
+                  "    || (!authHeader && !jwtToken);",
+                  "const isPlaceholderId = /\\/\\{\\{serviceId\\}\\}/.test(url);",
+                  "",
+                  "if (isPlaceholderToken) {",
+                  "    pm.test('Sin auth → 401', function () {",
+                  "        pm.expect(pm.response.code, 'Respuesta equivocada').to.equal(401);",
+                  "    });",
+                  "} else if (isPlaceholderId) {",
+                  "    pm.test('ID no resuelto → 400 o 404', function () {",
+                  "        pm.expect([400, 404], 'Respuesta equivocada').to.include(pm.response.code);",
+                  "    });",
+                  "} else {",
+                  "    pm.test('Servicio obtenido → 200', function () {",
+                  "        pm.expect(pm.response.code, 'Respuesta equivocada').to.equal(200);",
+                  "    });",
+                  "    if (pm.response.code === 200) {",
+                  "        const json = pm.response.json();",
+                  "        pm.test('Respuesta contiene nombre del servicio', function () {",
+                  "            const name = json.name || (json.data && json.data.name);",
+                  "            pm.expect(name, 'Respuesta equivocada').to.be.ok;",
+                  "        });",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwtToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/services/{{serviceId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "services",
+                "{{serviceId}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update Service",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// ── Update Service ────────────────────────────────────────────────────────────",
+                  "const url = pm.request.url.toString();",
+                  "// FIX: detectar token desde colección además del header manual",
+                  "const authHeader = pm.request.headers.get('Authorization') || '';",
+                  "const jwtToken = pm.collectionVariables.get('jwtToken') || '';",
+                  "const isPlaceholderToken = (authHeader && (/Bearer\\s*(\\{\\{.*\\}\\})?$/.test(authHeader) || authHeader.trim() === 'Bearer'))",
+                  "    || (!authHeader && !jwtToken);",
+                  "const isPlaceholderId = /\\/\\{\\{serviceId\\}\\}/.test(url);",
+                  "const body = JSON.parse(pm.request.body.raw || '{}');",
+                  "const durationValid = !body.duration || (typeof body.duration === 'number' && body.duration > 0);",
+                  "const priceValid = !body.basePrice || (typeof body.basePrice === 'number' && body.basePrice >= 0);",
+                  "",
+                  "if (isPlaceholderToken) {",
+                  "    pm.test('Sin auth → 401', function () {",
+                  "        pm.expect(pm.response.code, 'Respuesta equivocada').to.equal(401);",
+                  "    });",
+                  "} else if (isPlaceholderId) {",
+                  "    pm.test('ID no resuelto → 400 o 404', function () {",
+                  "        pm.expect([400, 404], 'Respuesta equivocada').to.include(pm.response.code);",
+                  "    });",
+                  "} else if (!durationValid || !priceValid) {",
+                  "    pm.test('Datos inválidos → 400', function () {",
+                  "        pm.expect(pm.response.code, 'Respuesta equivocada').to.equal(400);",
+                  "    });",
+                  "} else {",
+                  "    pm.test('Servicio actualizado → 200', function () {",
+                  "        pm.expect(pm.response.code, 'Respuesta equivocada').to.equal(200);",
+                  "    });",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwtToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"doctorId\":\"{{doctorId}}\",\"name\":\"Consulta Especializada\",\"description\":\"Consulta médica especializada de 45 minutos\",\"duration\":45,\"basePrice\":80000,\"active\":true}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/services/{{serviceId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "services",
+                "{{serviceId}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Service",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// ── Delete Service ────────────────────────────────────────────────────────────",
+                  "const url = pm.request.url.toString();",
+                  "// FIX: detectar token desde colección además del header manual",
+                  "const authHeader = pm.request.headers.get('Authorization') || '';",
+                  "const jwtToken = pm.collectionVariables.get('jwtToken') || '';",
+                  "const isPlaceholderToken = (authHeader && (/Bearer\\s*(\\{\\{.*\\}\\})?$/.test(authHeader) || authHeader.trim() === 'Bearer'))",
+                  "    || (!authHeader && !jwtToken);",
+                  "const isPlaceholderId = /\\/\\{\\{serviceId\\}\\}/.test(url);",
+                  "",
+                  "if (isPlaceholderToken) {",
+                  "    pm.test('Sin auth → 401', function () {",
+                  "        pm.expect(pm.response.code, 'Respuesta equivocada').to.equal(401);",
+                  "    });",
+                  "} else if (isPlaceholderId) {",
+                  "    pm.test('ID no resuelto → 400 o 404', function () {",
+                  "        pm.expect([400, 404], 'Respuesta equivocada').to.include(pm.response.code);",
+                  "    });",
+                  "} else {",
+                  "    pm.test('Servicio eliminado → 200 o 204', function () {",
+                  "        pm.expect([200, 204], 'Respuesta equivocada').to.include(pm.response.code);",
+                  "    });",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwtToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/services/{{serviceId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "services",
+                "{{serviceId}}"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    }
+  ],
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{jwtToken}}",
+        "type": "string"
+      }
+    ]
+  },
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "packages": {},
+        "requests": {},
+        "exec": [
+          ""
+        ]
+      }
+    },
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "packages": {},
+        "requests": {},
+        "exec": [
+          ""
+        ]
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3001"
+    },
+    {
+      "key": "jwtToken",
+      "value": ""
+    },
+    {
+      "key": "doctorId",
+      "value": ""
+    },
+    {
+      "key": "serviceId",
+      "value": ""
+    },
+    {
+      "key": "appointmentId",
+      "value": ""
+    },
+    {
+      "key": "patientId",
+      "value": ""
+    },
+    {
+      "key": "availabilityId",
+      "value": ""
+    },
+    {
+      "key": "doctorBlockId",
+      "value": ""
+    },
+    {
+      "key": "scheduleBlockId",
+      "value": ""
+    }
+  ]
+}

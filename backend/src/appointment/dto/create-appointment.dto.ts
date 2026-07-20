@@ -1,25 +1,49 @@
-import { IsDateString, IsOptional, IsString, Matches } from "class-validator";
+import { IdentificationType } from '@prisma/client';
+import {
+  IsDateString,
+  IsEmail,
+  IsEnum,
+  IsOptional,
+  IsString,
+  Matches,
+} from 'class-validator';
 
 export class CreateAppointmentDto {
 
-    @IsString()
-    doctorId!: string;
+  // Doctor
+  @IsString()
+  doctorId!: string;
 
-    @IsString()
-    patientId!: string;
+  // Servicio
+  @IsString()
+  serviceId!: string;
 
-    @IsString()
-    serviceId!: string;
+  // Datos del paciente
+  @IsEnum(IdentificationType)
+  identificationType!: IdentificationType;
 
-    @IsDateString()
-    appointmentDate!: string;
+  @IsString()
+  identification!: string;
 
-    @IsString()
-    @Matches(/^([01]\d|2[0-3]):([0-5]\d)$/)
-    appointmentTime!: string
+  @IsString()
+  name!: string;
 
-    @IsString()
-@IsOptional()
-    observations?: string;
+  @IsString()
+  phone!: string;
 
+  @IsOptional()
+  @IsEmail()
+  email?: string;
+
+  // Cita
+  @IsDateString()
+  appointmentDate!: string;
+
+  @IsString()
+  @Matches(/^([01]\d|2[0-3]):([0-5]\d)$/)
+  appointmentTime!: string;
+
+  @IsOptional()
+  @IsString()
+  observations?: string;
 }

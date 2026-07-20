@@ -231,8 +231,32 @@ export class AppointmentValidators {
 
     return true;
   }
+  async findOrCreatePatient(dto: CreateAppointmentDto) {
 
-     async saveAppointment(dto: CreateAppointmentDto) {
+  const patient = await this.prisma.patient.findFirst({
+    where: {
+      identificationType: dto.identificationType,
+      identification: dto.identification,
+    },
+  });
+
+  if (patient) {
+    return patient;
+  }
+
+  return this.prisma.patient.create({
+    data: {
+      identificationType: dto.identificationType,
+      identification: dto.identification,
+      name: dto.name,
+      phone: dto.phone,
+      email: dto.email,
+    },
+  });
+
+}
+
+     async saveAppointment(dto: CreateAppointmentDto, patientId: string) {
 
     const appointmentDate = new Date(`${dto.appointmentDate}T${dto.appointmentTime}:00`)
     return this.prisma.appointment.create({
@@ -240,7 +264,7 @@ export class AppointmentValidators {
         appointmentDate,
         appointmentTime: dto.appointmentTime,
         observations: dto.observations,
-        patientId: dto.patientId,
+        patientId,
         doctorId: dto.doctorId,
         serviceId: dto.serviceId,
 

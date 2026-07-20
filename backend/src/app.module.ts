@@ -10,10 +10,23 @@ import { DoctorBlockModule } from './doctor-block/doctor-block.module';
 import { AppointmentModule } from './appointment/appointment.module';
 import { HolidayModule } from './holiday/holiday.module';
 import { DoctorScheduleBlockModule } from './doctor-schedule-block/doctor-schedule-block.module';
+import { AuthModule } from './auth/auth.module';
+import { ConfigModule } from '@nestjs/config';
 
 @Module({
-  imports: [PatientsModule, PrismaModule, DoctorAvailabilityModule, DoctorModule, ServiceModule, DoctorBlockModule, AppointmentModule, HolidayModule, DoctorScheduleBlockModule],
+  imports: [
+    ConfigModule.forRoot({isGlobal: true}),
+    PatientsModule,
+    PrismaModule,
+    DoctorAvailabilityModule,
+    DoctorModule,
+    ServiceModule,
+    DoctorBlockModule,
+    AppointmentModule,
+    HolidayModule,
+    DoctorScheduleBlockModule,
+    AuthModule],
   controllers: [AppController],
   providers: [AppService],
 })
-export class AppModule {}
+export class AppModule { }
