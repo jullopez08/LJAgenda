@@ -1,65 +1,216 @@
-import Image from "next/image";
+"use client"
 
-export default function Home() {
+import { useCallback, useState } from "react"
+import { addDays, format, startOfToday } from "date-fns"
+
+import { BookingShell } from "@/components/booking/booking-shell"
+import { WelcomeScreen } from "@/components/booking/welcome-screen"
+import { IdentifyScreen } from "@/components/booking/identify-screen"
+import { RegisterScreen } from "@/components/booking/register-screen"
+import { ServiceScreen } from "@/components/booking/service-screen"
+import { ProviderScreen } from "@/components/booking/provider-screen"
+import { CalendarScreen } from "@/components/booking/calendar-screen"
+import { ConfirmScreen } from "@/components/booking/confirm-screen"
+import { SuccessScreen } from "@/components/booking/success-screen"
+import { SearchAppointmentScreen } from "@/components/booking/searchAppointmentScreen"
+import { ManageScreen } from "@/components/booking/manage-screen"
+import { existingPatient, providers, services } from "@/lib/ljagenda/data"
+import type {
+  AppointmentStatus,
+  BookingDraft,
+  BookingStep,
+  DocumentType,
+  PatientDTO,
+  ProviderDTO,
+  ServiceDTO,
+} from "@/lib/ljagenda/types"
+
+const emptyDraft: BookingDraft = {
+  patient: null,
+  service: null,
+  provider: null,
+  date: null,
+  time: null,
+}
+
+function demoDraft(): BookingDraft {
+  return {
+    patient: existingPatient,
+    service: services[0],
+    provider: providers[0],
+    date: format(addDays(startOfToday(), 1), "yyyy-MM-dd"),
+    time: "09:30",
+  }
+}
+
+export default function Page() {
+  const [step, setStep] = useState<BookingStep>("welcome")
+  const [history, setHistory] = useState<BookingStep[]>([])
+  const [draft, setDraft] = useState<BookingDraft>(emptyDraft)
+  const [docType, setDocType] = useState<DocumentType>("CC")
+  const [docNumber, setDocNumber] = useState("")
+  const [status, setStatus] = useState<AppointmentStatus>("pending")
+  const [reschedule, setReschedule] = useState(false)
+
+  const goTo = useCallback(
+    (next: BookingStep) => {
+      setHistory((h) => [...h, step])
+      setStep(next)
+    },
+    [step],
+  )
+
+  const jump = useCallback((next: BookingStep) => {
+    setHistory([])
+    setStep(next)
+  }, [])
+
+  const back = useCallback(() => {
+    setHistory((h) => {
+      if (h.length === 0) return h
+      const prev = h[h.length - 1]
+      setStep(prev)
+      return h.slice(0, -1)
+    })
+  }, [])
+
+  const update = (patch: Partial<BookingDraft>) =>
+    setDraft((d) => ({ ...d, ...patch }))
+
+  const showBack = !["welcome", "success"].includes(step) && history.length > 0
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
+    <BookingShell step={step} onBack={showBack ? back : undefined}>
+      {step === "welcome" && (
+        <WelcomeScreen
+          onStart={() => {
+            setDraft(emptyDraft)
+            setDocNumber("")
+            goTo("identify")
+          }}
+          onManage={() => {
+           // setDraft(demoDraft())
+           // setStatus("pending")
+            jump("searchAppointment")
+          }}
         />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
-    </div>
-  );
+      )}
+
+      {step === "identify" && (
+        <IdentifyScreen
+          onNew={(type, number) => {
+            setDocType(type)
+            setDocNumber(number)
+            goTo("register")
+          }}
+        />
+      )}
+      {step === "searchAppointment" && (
+  <SearchAppointmentScreen
+    onSearch={(documentType, documentNumber) => {
+
+      console.log(documentType)
+      console.log(documentNumber)
+
+      // Temporal mientras conectamos el backend
+      setDraft(demoDraft())
+      setStatus("pending")
+
+      jump("manage")
+    }}
+  />
+)}
+
+      {step === "register" && (
+        <RegisterScreen
+          documentType={docType}
+          documentNumber={docNumber}
+          onSubmit={(patient: PatientDTO) => {
+            update({ patient })
+            goTo("service")
+          }}
+        />
+      )}
+
+      {step === "service" && (
+        <ServiceScreen
+          selectedId={draft.service?.id}
+          onSelect={(service: ServiceDTO) => {
+            update({ service })
+            goTo("provider")
+          }}
+        />
+      )}
+
+      {step === "provider" && (
+        <ProviderScreen
+          selectedId={draft.provider?.id}
+          onSelect={(provider: ProviderDTO) => {
+            update({ provider })
+            goTo("calendar")
+          }}
+        />
+      )}
+
+      {step === "calendar" && (
+        <CalendarScreen
+          date={draft.date}
+          time={draft.time}
+          onSelectDate={(date) => update({ date, time: null })}
+          onSelectTime={(time) => update({ time })}
+          onContinue={() => {
+            if (reschedule) {
+              setReschedule(false)
+              setStatus("pending")
+              jump("manage")
+            } else {
+              goTo("confirm")
+            }
+          }}
+        />
+      )}
+
+      {step === "confirm" && (
+        <ConfirmScreen
+          draft={draft}
+          onConfirm={() => {
+            setStatus("pending")
+            jump("success")
+          }}
+        />
+      )}
+
+      {step === "success" && (
+        <SuccessScreen
+          draft={draft}
+          onManage={() => jump("manage")}
+          onNewBooking={() => {
+            setDraft((d) => ({ ...emptyDraft, patient: d.patient }))
+            jump("service")
+          }}
+          onHome={() => {
+            setDraft(emptyDraft)
+            jump("welcome")
+          }}
+        />
+      )}
+
+      {step === "manage" && (
+        <ManageScreen
+          draft={draft}
+          status={status}
+          onConfirm={() => setStatus("confirmed")}
+          onReschedule={() => {
+            setReschedule(true)
+            goTo("calendar")
+          }}
+          onCancel={() => setStatus("cancelled")}
+          onHome={() => {
+            setDraft(emptyDraft)
+            jump("welcome")
+          }}
+        />
+      )}
+    </BookingShell>
+  )
 }
