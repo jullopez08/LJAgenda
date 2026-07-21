@@ -15,29 +15,36 @@ import { UpdateServiceDto } from './dto/update-service.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
 @Controller('services')
-@UseGuards(JwtAuthGuard)
 export class ServiceController {
 
   constructor(
     private readonly serviceService: ServiceService,
-  ) {}
+  ) { }
 
   @Post()
+  @UseGuards(JwtAuthGuard)
   create(@Body() createServiceDto: CreateServiceDto) {
     return this.serviceService.create(createServiceDto);
   }
 
   @Get()
+  @UseGuards(JwtAuthGuard)
   findAll() {
     return this.serviceService.findAll();
   }
+  @Get("patient")
+  findAllforPatient(){
+    return this.serviceService.findAllForPatient()
+  }
 
   @Get(':id')
+  @UseGuards(JwtAuthGuard)
   findOne(@Param('id') id: string) {
     return this.serviceService.findOne(id);
   }
 
   @Patch(':id')
+  @UseGuards(JwtAuthGuard)
   update(
     @Param('id') id: string,
     @Body() updateServiceDto: UpdateServiceDto,
@@ -46,6 +53,7 @@ export class ServiceController {
   }
 
   @Delete(':id')
+  @UseGuards(JwtAuthGuard)
   remove(@Param('id') id: string) {
     return this.serviceService.remove(id);
   }

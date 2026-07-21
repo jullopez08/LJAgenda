@@ -1,7 +1,6 @@
 "use client"
 
 import { useCallback, useState } from "react"
-import { addDays, format, startOfToday } from "date-fns"
 
 import { BookingShell } from "@/components/booking/booking-shell"
 import { WelcomeScreen } from "@/components/booking/welcome-screen"
@@ -14,7 +13,6 @@ import { ConfirmScreen } from "@/components/booking/confirm-screen"
 import { SuccessScreen } from "@/components/booking/success-screen"
 import { SearchAppointmentScreen } from "@/components/booking/searchAppointmentScreen"
 import { ManageScreen } from "@/components/booking/manage-screen"
-import { existingPatient, providers, services } from "@/lib/ljagenda/data"
 import type {
   AppointmentStatus,
   BookingDraft,
@@ -33,15 +31,6 @@ const emptyDraft: BookingDraft = {
   time: null,
 }
 
-function demoDraft(): BookingDraft {
-  return {
-    patient: existingPatient,
-    service: services[0],
-    provider: providers[0],
-    date: format(addDays(startOfToday(), 1), "yyyy-MM-dd"),
-    time: "09:30",
-  }
-}
 
 export default function Page() {
   const [step, setStep] = useState<BookingStep>("welcome")
@@ -89,9 +78,7 @@ export default function Page() {
             goTo("identify")
           }}
           onManage={() => {
-           // setDraft(demoDraft())
-           // setStatus("pending")
-            jump("searchAppointment")
+          goTo("searchAppointment")
           }}
         />
       )}
@@ -107,14 +94,10 @@ export default function Page() {
       )}
       {step === "searchAppointment" && (
   <SearchAppointmentScreen
-    onSearch={(documentType, documentNumber) => {
+    onSearch={ async (documentType, documentNumber) => {
 
       console.log(documentType)
       console.log(documentNumber)
-
-      // Temporal mientras conectamos el backend
-      setDraft(demoDraft())
-      setStatus("pending")
 
       jump("manage")
     }}

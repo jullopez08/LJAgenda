@@ -11,46 +11,6 @@ export const documentTypes: { value: DocumentType; label: string }[] = [
   { value: "PP", label: "Pasaporte" },
 ]
 
-/** Simulated "existing patient" lookup used by the auth-less gate. */
-export const existingPatient = {
-  documentType: "CC" as DocumentType,
-  documentNumber: "1032456789",
-  fullName: "María Fernanda Ríos",
-  phone: "300 555 0142",
-  email: "maria.rios@email.com",
-}
-
-export const services: ServiceDTO[] = [
-  {
-    id: "svc-consulta",
-    name: "Consulta general",
-    description: "Valoración médica integral y plan de tratamiento.",
-    durationMin: 30,
-    price: 50000,
-  },
-  {
-    id: "svc-control",
-    name: "Cita de control",
-    description: "Seguimiento a tratamiento en curso.",
-    durationMin: 20,
-    price: 35000,
-  },
-  {
-    id: "svc-especialista",
-    name: "Consulta especialista",
-    description: "Atención especializada con profesional certificado.",
-    durationMin: 45,
-    price: 90000,
-  },
-  {
-    id: "svc-examen",
-    name: "Toma de exámenes",
-    description: "Laboratorio clínico y muestras diagnósticas.",
-    durationMin: 15,
-    price: 28000,
-  },
-]
-
 export const providers: ProviderDTO[] = [
   {
     id: "pro-1",

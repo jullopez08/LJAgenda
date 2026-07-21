@@ -15,8 +15,7 @@ export interface ServiceDTO {
   id: string
   name: string
   description: string
-  durationMin: number
-  price: number
+  basePrice?: number;
 }
 
 export interface ProviderDTO {

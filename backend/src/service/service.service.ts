@@ -2,13 +2,14 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateServiceDto } from './dto/create-service.dto';
 import { UpdateServiceDto } from './dto/update-service.dto';
+import { ServiceCardDto } from './dto/service-card.dto';
 
 @Injectable()
 export class ServiceService {
 
   constructor(
     private prisma: PrismaService,
-  ) {}
+  ) { }
 
   async create(createServiceDto: CreateServiceDto) {
     return this.prisma.service.create({
@@ -25,6 +26,25 @@ export class ServiceService {
         createdAt: 'desc',
       },
     });
+  }
+  async findAllForPatient(): Promise<ServiceCardDto[]> {
+    const services = await this.prisma.service.findMany({
+      where: {
+        active: true,
+      },
+      orderBy: {
+        name: 'asc',
+      },
+    });
+
+    return services.map(service => ({
+      id: service.id,
+      name: service.name,
+      description: service.description ?? undefined,
+        basePrice: service.basePrice
+      ? Number(service.basePrice)
+      : undefined,
+    }));
   }
 
   async findOne(id: string) {

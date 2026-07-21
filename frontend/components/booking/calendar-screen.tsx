@@ -8,9 +8,8 @@ import { ArrowRightIcon, SunIcon, SunsetIcon } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Calendar } from "@/components/ui/calendar"
-import { getTimeSlots } from "@/lib/ljagenda/data"
 import type { TimeSlotDTO } from "@/lib/ljagenda/types"
-
+import { getTimeSlots } from "@/lib/ljagenda/data"
 const toKey = (d: Date) => format(d, "yyyy-MM-dd")
 
 export function CalendarScreen({
