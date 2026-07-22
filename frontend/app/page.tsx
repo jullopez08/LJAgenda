@@ -13,6 +13,7 @@ import { ConfirmScreen } from "@/components/booking/confirm-screen"
 import { SuccessScreen } from "@/components/booking/success-screen"
 import { SearchAppointmentScreen } from "@/components/booking/searchAppointmentScreen"
 import { ManageScreen } from "@/components/booking/manage-screen"
+import { getPatient } from "@/lib/patients";
 import type {
   AppointmentStatus,
   BookingDraft,
@@ -78,36 +79,45 @@ export default function Page() {
             goTo("identify")
           }}
           onManage={() => {
-          goTo("searchAppointment")
+            goTo("searchAppointment")
           }}
         />
       )}
 
       {step === "identify" && (
         <IdentifyScreen
-          onNew={(type, number) => {
-            setDocType(type)
-            setDocNumber(number)
-            goTo("register")
+          onNew={async (type, number) => {
+            const patient = await getPatient(number);
+            console.log(patient)
+            if (patient) {
+              update({ patient });
+              goTo("service");
+              return;
+            }
+
+            setDocType(type);
+            setDocNumber(number);
+
+            goTo("register");
           }}
         />
       )}
       {step === "searchAppointment" && (
-  <SearchAppointmentScreen
-    onSearch={ async (documentType, documentNumber) => {
+        <SearchAppointmentScreen
+          onSearch={async (documentType, documentNumber) => {
 
-      console.log(documentType)
-      console.log(documentNumber)
+            console.log(documentType)
+            console.log(documentNumber)
 
-      jump("manage")
-    }}
-  />
-)}
+            jump("manage")
+          }}
+        />
+      )}
 
       {step === "register" && (
         <RegisterScreen
-          documentType={docType}
-          documentNumber={docNumber}
+          identificationType={docType}
+          identification={docNumber}
           onSubmit={(patient: PatientDTO) => {
             update({ patient })
             goTo("service")

@@ -2,6 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreatePatientDto } from './dto/create-patient.dto';
 import { UpdatePatientDto } from './dto/update-patient.dto';
+import { IdentificationType } from '@prisma/client';
 
 @Injectable()
 export class PatientsService {
@@ -20,6 +21,11 @@ export class PatientsService {
     return this.prisma.patient.findMany({
         orderBy: { createdAt: 'desc'}
     })
+  }
+  async findByDocument(identification: string) {
+  return this.prisma.patient.findUnique({
+    where: { identification}
+  });
   }
 
   async findOne(id: string){

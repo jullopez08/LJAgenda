@@ -3,11 +3,10 @@
 export type DocumentType = "CC" | "CE" | "PP"
 
 export interface PatientDTO {
-  documentType: DocumentType
-  documentNumber: string
-  fullName: string
+  identificationType: DocumentType
+  identification: string
+  name: string
   phone: string
-  /** Optional — never required to complete a booking. */
   email?: string
 }
 

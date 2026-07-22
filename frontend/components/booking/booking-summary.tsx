@@ -28,9 +28,9 @@ export function BookingSummary({
     {
       icon: UserIcon,
       label: "Paciente",
-      value: draft.patient?.fullName ?? "—",
+      value: draft.patient?.name ?? "—",
       hint: draft.patient
-        ? `${draft.patient.documentType} ${draft.patient.documentNumber}`
+        ? `${draft.patient.identificationType} ${draft.patient.identification}`
         : undefined,
     },
     {
@@ -63,13 +63,13 @@ export function BookingSummary({
             <span className="text-sm font-semibold text-card-foreground">
               {draft.service.name}
             </span>
-            <span className="text-xs text-muted-foreground">
+            {/* <span className="text-xs text-muted-foreground">
               {draft.service.durationMin} min
-            </span>
+            </span> */}
           </div>
-          <span className="text-base font-semibold text-foreground">
-            {formatPrice(draft.service.price)}
-          </span>
+           <span className="text-base font-semibold text-foreground">
+            {formatPrice(draft.service.basePrice ?? 0)}
+          </span> 
         </div>
       ) : null}
 

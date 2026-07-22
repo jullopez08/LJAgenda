@@ -7,8 +7,8 @@ export function SearchAppointmentScreen({
   onSearch,
 }: {
   onSearch: (
-    documentType: DocumentType,
-    documentNumber: string,
+    identificationType: DocumentType,
+    identification: string,
   ) => void
 }) {
   return (

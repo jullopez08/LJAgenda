@@ -23,8 +23,8 @@ interface IdentifyFormProps {
   description: string
   buttonText: string
   onSubmit: (
-    documentType: DocumentType,
-    documentNumber: string,
+    identificationType: DocumentType,
+    identification: string,
   ) => void
 }
 
@@ -34,13 +34,13 @@ export function IdentifyForm({
   buttonText,
   onSubmit,
 }: IdentifyFormProps) {
-  const [documentType, setDocumentType] = useState<DocumentType>("CC")
-  const [documentNumber, setDocumentNumber] = useState("")
+  const [identificationType, setDocumentType] = useState<DocumentType>("CC")
+  const [identification, setDocumentNumber] = useState("")
 
-  const canContinue = documentNumber.trim().length >= 4
+  const canContinue = identification.trim().length >= 4
 
   function handleSubmit() {
-    onSubmit(documentType, documentNumber.trim())
+    onSubmit(identificationType, identification.trim())
   }
 
   return (
@@ -62,7 +62,7 @@ export function IdentifyForm({
           </FieldLabel>
 
           <Select
-            value={documentType}
+            value={identificationType}
             onValueChange={(v) =>
               setDocumentType(v as DocumentType)
             }
@@ -99,7 +99,7 @@ export function IdentifyForm({
             inputMode="numeric"
             autoComplete="off"
             placeholder="Ej: 1032456789"
-            value={documentNumber}
+            value={identification}
             onChange={(e) =>
               setDocumentNumber(
                 e.target.value.replace(/[^0-9]/g, "")

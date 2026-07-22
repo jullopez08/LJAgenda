@@ -15,29 +15,29 @@ import { documentTypes } from "@/lib/ljagenda/data"
 import type { DocumentType, PatientDTO } from "@/lib/ljagenda/types"
 
 export function RegisterScreen({
-  documentType,
-  documentNumber,
-  onSubmit,
+  identificationType,
+  identification,
+  onSubmit, 
 }: {
-  documentType: DocumentType
-  documentNumber: string
+  identificationType: DocumentType
+  identification: string
   onSubmit: (patient: PatientDTO) => void
 }) {
-  const [fullName, setFullName] = useState("")
+  const [name, setFullName] = useState("")
   const [phone, setPhone] = useState("")
   const [email, setEmail] = useState("")
 
   const docLabel =
-    documentTypes.find((d) => d.value === documentType)?.label ?? documentType
-  const valid = fullName.trim().length >= 3 && phone.trim().length >= 7
+    documentTypes.find((d) => d.value === identificationType)?.label ?? identificationType
+  const valid = name.trim().length >= 3 && phone.trim().length >= 7
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!valid) return
     onSubmit({
-      documentType,
-      documentNumber,
-      fullName: fullName.trim(),
+      identificationType: identificationType,
+      identification: identification,
+      name: name.trim(),
       phone: phone.trim(),
       email: email.trim() || undefined,
     })
@@ -60,13 +60,13 @@ export function RegisterScreen({
             <FieldLabel htmlFor="reg-doc-type">Documento</FieldLabel>
             <div className="flex h-8 items-center gap-1.5 rounded-input border border-input bg-muted/50 px-2.5 text-sm text-muted-foreground">
               <LockIcon className="size-3.5 shrink-0" />
-              <span className="truncate">{documentType}</span>
+              <span className="truncate">{identificationType}</span>
             </div>
           </Field>
           <Field>
             <FieldLabel htmlFor="reg-doc-number">Número</FieldLabel>
             <div className="flex h-8 items-center rounded-input border border-input bg-muted/50 px-2.5 text-sm text-muted-foreground">
-              <span className="truncate">{documentNumber || "—"}</span>
+              <span className="truncate">{identification || "—"}</span>
             </div>
           </Field>
         </div>
@@ -81,7 +81,7 @@ export function RegisterScreen({
             autoCapitalize="words"
             enterKeyHint="next"
             placeholder="Ej: Juan Camilo Torres"
-            value={fullName}
+            value={name}
             onChange={(e) => setFullName(e.target.value)}
           />
         </Field>
