@@ -23,7 +23,7 @@ export class PatientsController {
   }
   @Get('search')
   findByDocument( @Query('identification') identification : string,) {
-    console.log(identification);
+    console.log(identification); 
     return this.patientsService.findByDocument(identification);
   }
 

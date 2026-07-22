@@ -25,7 +25,7 @@ export class PatientsService {
   async findByDocument(identification: string) {
   return this.prisma.patient.findUnique({
     where: { identification}
-  });
+  }); 
   }
 
   async findOne(id: string){

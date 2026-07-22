@@ -29,7 +29,7 @@ const STATUS_META: Record<
   AppointmentStatus,
   { label: string; badge: "default" | "secondary" | "destructive"; className: string }
 > = {
-  pending: {
+  pending: { 
     label: "Pendiente de confirmar",
     badge: "secondary",
     className: "bg-secondary text-secondary-foreground",

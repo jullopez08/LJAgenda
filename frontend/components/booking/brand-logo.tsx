@@ -9,7 +9,7 @@ export function BrandLogo({
   className?: string
   showName?: boolean
   size?: "sm" | "lg"
-}) {
+}) { 
   return (
     <div className={cn("flex items-center gap-2.5", className)}>
       <span

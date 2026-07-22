@@ -30,7 +30,7 @@ export function ServiceScreen({
       } finally {
         setLoading(false)
       }
-    }
+    } 
 
     loadServices()
   }, [])

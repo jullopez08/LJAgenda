@@ -124,7 +124,7 @@ export default function Page() {
           }}
         />
       )}
-
+ 
       {step === "service" && (
         <ServiceScreen
           selectedId={draft.service?.id}

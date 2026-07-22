@@ -16,7 +16,7 @@ export function CalendarScreen({
   date,
   time,
   onSelectDate,
-  onSelectTime,
+  onSelectTime, 
   onContinue,
 }: {
   date: string | null

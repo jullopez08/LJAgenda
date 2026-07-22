@@ -34,6 +34,7 @@ export function BookingSummary({
         : undefined,
     },
     {
+      
       icon: StethoscopeIcon,
       label: "Profesional",
       value: draft.provider?.name ?? "—",

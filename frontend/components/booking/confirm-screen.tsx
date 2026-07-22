@@ -23,7 +23,7 @@ export function ConfirmScreen({
     // Simulate a network round-trip before advancing.
     setTimeout(() => onConfirm(), 900)
   }
-
+ 
   return (
     <div className="flex flex-1 flex-col gap-6">
       <div className="flex flex-col gap-1.5">

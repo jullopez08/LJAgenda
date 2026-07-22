@@ -18,7 +18,7 @@ export async function getPatient(
       name: patient.name,
       phone: patient.phone,
       email: patient.email,
-    };
+    }; 
 
   } catch {
 

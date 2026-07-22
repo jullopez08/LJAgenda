@@ -20,4 +20,4 @@ export function IdentifyScreen({
       onSubmit={onNew}
     />
   )
-}
+} 

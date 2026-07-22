@@ -42,7 +42,7 @@ export function SuccessScreen({
       <BookingSummary draft={draft} />
 
       <div className="flex flex-col gap-3">
-
+ 
         <Button size="lg" className="h-12 w-full text-base" onClick={onManage}>
           Gestionar mi cita
         </Button>

@@ -22,7 +22,7 @@ export function RegisterScreen({
   identificationType: DocumentType
   identification: string
   onSubmit: (patient: PatientDTO) => void
-}) {
+}) { 
   const [name, setFullName] = useState("")
   const [phone, setPhone] = useState("")
   const [email, setEmail] = useState("")

@@ -19,4 +19,4 @@ export function SearchAppointmentScreen({
       onSubmit={onSearch}
     />
   )
-}
+} 
