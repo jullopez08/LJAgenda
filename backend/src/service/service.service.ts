@@ -27,10 +27,11 @@ export class ServiceService {
       },
     });
   }
-  async findAllForPatient(): Promise<ServiceCardDto[]> {
+  async findAllForPatient(doctorId?: string): Promise<ServiceCardDto[]> {
     const services = await this.prisma.service.findMany({
       where: {
         active: true,
+        ...(doctorId && { doctorId})
       },
       orderBy: {
         name: 'asc',

@@ -1,4 +1,4 @@
-import { addMinutes, hasTimeConflict, timeToMinutes } from './appointment-time';
+import { addMinutes, hasTimeConflict, minutesToTime, timeToMinutes } from './appointment-time';
 
 export function generateSlots(
   startTime: string,
@@ -8,7 +8,7 @@ export function generateSlots(
 
   const slots: string[] = [];
 
-  let currentTime = startTime;
+  let currentTime = minutesToTime(timeToMinutes(startTime))
 
   while (
     timeToMinutes(addMinutes(currentTime, appointmentDuration)) <=

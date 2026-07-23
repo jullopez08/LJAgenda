@@ -6,6 +6,7 @@ import {
   Param,
   Patch,
   Post,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 
@@ -33,8 +34,8 @@ export class ServiceController {
     return this.serviceService.findAll();
   }
   @Get("patient")
-  findAllforPatient(){
-    return this.serviceService.findAllForPatient()
+  findAllforPatient(@Query('doctorId') doctorId?: string){
+    return this.serviceService.findAllForPatient(doctorId)
   }
 
   @Get(':id')

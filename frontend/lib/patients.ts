@@ -1,5 +1,5 @@
 import { api } from "./api";
-import type { PatientDTO, DocumentType } from "@/lib/ljagenda/types";
+import type { PatientDTO } from "@/lib/ljagenda/types";
 
 
 export async function getPatient(

@@ -5,8 +5,8 @@ import type { BookingStep } from "@/lib/ljagenda/types"
 const FLOW: BookingStep[] = [
   "identify",
   "register",
-  "service",
   "provider",
+  "service",
   "calendar",
   "confirm",
 ]

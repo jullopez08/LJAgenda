@@ -42,6 +42,18 @@ export interface BookingDraft {
   date: string | null
   time: string | null
 }
+export interface CreateAppointmentPayload {
+  doctorId: string;
+  serviceId: string;
+  identificationType: string;
+  identification: string;
+  name: string;
+  phone: string;
+  email?: string;
+  appointmentDate: string;
+  appointmentTime: string;
+  observations?: string;
+}
 
 export type BookingStep =
   | "welcome"

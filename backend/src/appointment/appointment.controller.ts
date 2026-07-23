@@ -5,6 +5,7 @@ import { GetAvailableSlotsDto } from './dto/get-available-slots.dto';
 import { RescheduleAppointmentDto } from './dto/reschedule-appointment.dto';
 import { GetAppointmentsDto } from './dto/get-appointments.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { GetAvailabilitySummaryDto } from './dto/get-availability-summary.dto';
 
 @Controller('appointment')
 export class AppointmentController {
@@ -18,10 +19,20 @@ export class AppointmentController {
     getAvailableSlots(
         @Query() query: GetAvailableSlotsDto
     ) {
+        console.log('QUERY RECIBIDA:', query);
         return this.appointmentService.getAvailableSlots(
             query.doctorId,
             query.serviceId,
             query.date,
+        );
+    }
+    @Get('availability-summary')
+    getAvailabilitySummary(@Query() query: GetAvailabilitySummaryDto) {
+        return this.appointmentService.getAvailabilitySummary(
+            query.doctorId,
+            query.serviceId,
+            query.startDate,
+            query.endDate,
         );
     }
     @Get()

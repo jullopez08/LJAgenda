@@ -8,6 +8,7 @@ import { Spinner } from "@/components/ui/spinner"
 import { BookingSummary } from "@/components/booking/booking-summary"
 import { tenant } from "@/lib/ljagenda/config"
 import type { BookingDraft } from "@/lib/ljagenda/types"
+import { buildCreateAppointmentPayload, createAppointment } from "@/lib/api"
 
 export function ConfirmScreen({
   draft,
@@ -17,11 +18,25 @@ export function ConfirmScreen({
   onConfirm: () => void
 }) {
   const [submitting, setSubmitting] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
-  function handleConfirm() {
+  async function handleConfirm() {
     setSubmitting(true)
-    // Simulate a network round-trip before advancing.
-    setTimeout(() => onConfirm(), 900)
+    setError(null)
+    try {
+      const payload = buildCreateAppointmentPayload(draft)
+      await createAppointment(payload)
+      onConfirm()
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "No se pudo agendar la cita. Intenta de nuevo.",
+      )
+    } finally {
+      setSubmitting(false)
+    }
+  
   }
  
   return (
@@ -45,6 +60,11 @@ export function ConfirmScreen({
           El pago se realiza en el consultorio.
         </p>
       </div>
+      {error ? (
+        <div className="rounded-input border border-destructive/30 bg-destructive/10 px-3.5 py-3 text-xs text-destructive">
+          {error}
+        </div>
+      ) : null}
 
       <div className="mt-auto pt-2">
         <Button

@@ -11,9 +11,11 @@ import { getServices } from "@/lib/services"
 import type { ServiceDTO } from "@/lib/ljagenda/types"
 
 export function ServiceScreen({
+  doctorId,
   selectedId,
   onSelect,
 }: {
+  doctorId: string
   selectedId?: string
   onSelect: (service: ServiceDTO) => void
 }) {
@@ -22,18 +24,19 @@ export function ServiceScreen({
 
   useEffect(() => {
     async function loadServices() {
+      setLoading(true)
       try {
-        const data = await getServices()
+        const data = await getServices(doctorId)
         setServices(data)
       } catch (error) {
         console.error("Error cargando servicios:", error)
       } finally {
         setLoading(false)
       }
-    } 
+    }
 
     loadServices()
-  }, [])
+  }, [doctorId])
 
   if (loading) {
     return (
@@ -54,56 +57,62 @@ export function ServiceScreen({
         </p>
       </div>
 
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        {services.map((service) => {
-          const active = service.id === selectedId
+      {services.length === 0 ? (
+        <p className="rounded-card border border-dashed border-border bg-muted/30 px-4 py-6 text-center text-sm text-muted-foreground">
+          Este profesional no tiene servicios disponibles por ahora.
+        </p>
+      ) : (
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          {services.map((service) => {
+            const active = service.id === selectedId
 
-          return (
-            <Card
-              key={service.id}
-              role="button"
-              tabIndex={0}
-              onClick={() => onSelect(service)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" || e.key === " ") {
-                  e.preventDefault()
-                  onSelect(service)
-                }
-              }}
-              className={cn(
-                "cursor-pointer rounded-card border-border transition-all duration-200 outline-none hover:-translate-y-0.5 hover:border-brand/40 hover:shadow-md",
-                active && "border-brand ring-2 ring-brand/20",
-              )}
-            >
-              <CardContent className="flex h-full flex-col gap-3 p-4">
-                <div className="flex items-start justify-between gap-2">
-                  <h2 className="text-sm font-semibold">
-                    {service.name}
-                  </h2>
+            return (
+              <Card
+                key={service.id}
+                role="button"
+                tabIndex={0}
+                onClick={() => onSelect(service)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault()
+                    onSelect(service)
+                  }
+                }}
+                className={cn(
+                  "cursor-pointer rounded-card border-border transition-all duration-200 outline-none hover:-translate-y-0.5 hover:border-brand/40 hover:shadow-md",
+                  active && "border-brand ring-2 ring-brand/20",
+                )}
+              >
+                <CardContent className="flex h-full flex-col gap-3 p-4">
+                  <div className="flex items-start justify-between gap-2">
+                    <h2 className="text-sm font-semibold">
+                      {service.name}
+                    </h2>
 
-                  {active && (
-                    <span className="grid size-5 place-items-center rounded-full bg-brand text-brand-foreground">
-                      <CheckIcon className="size-3" />
-                    </span>
-                  )}
-                </div>
+                    {active && (
+                      <span className="grid size-5 place-items-center rounded-full bg-brand text-brand-foreground">
+                        <CheckIcon className="size-3" />
+                      </span>
+                    )}
+                  </div>
 
-                <p className="text-xs text-muted-foreground">
-                  {service.description}
-                </p>
+                  <p className="text-xs text-muted-foreground">
+                    {service.description}
+                  </p>
 
-                <div className="mt-auto flex justify-end">
-                  {service.basePrice != null && (
-                    <span className="font-semibold text-foreground">
-                      {formatPrice(service.basePrice)}
-                    </span>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          )
-        })}
-      </div>
+                  <div className="mt-auto flex justify-end">
+                    {service.basePrice != null && (
+                      <span className="font-semibold text-foreground">
+                        {formatPrice(service.basePrice)}
+                      </span>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            )
+          })}
+        </div>
+      )}
     </div>
   )
 }

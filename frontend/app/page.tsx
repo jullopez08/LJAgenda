@@ -88,16 +88,13 @@ export default function Page() {
         <IdentifyScreen
           onNew={async (type, number) => {
             const patient = await getPatient(number);
-            console.log(patient)
             if (patient) {
               update({ patient });
-              goTo("service");
+              goTo("provider")   
               return;
             }
-
             setDocType(type);
             setDocNumber(number);
-
             goTo("register");
           }}
         />
@@ -109,7 +106,7 @@ export default function Page() {
             console.log(documentType)
             console.log(documentNumber)
 
-            jump("manage")
+             goTo("manage")
           }}
         />
       )}
@@ -120,17 +117,7 @@ export default function Page() {
           identification={docNumber}
           onSubmit={(patient: PatientDTO) => {
             update({ patient })
-            goTo("service")
-          }}
-        />
-      )}
- 
-      {step === "service" && (
-        <ServiceScreen
-          selectedId={draft.service?.id}
-          onSelect={(service: ServiceDTO) => {
-            update({ service })
-            goTo("provider")
+            goTo("provider")  
           }}
         />
       )}
@@ -140,7 +127,17 @@ export default function Page() {
           selectedId={draft.provider?.id}
           onSelect={(provider: ProviderDTO) => {
             update({ provider })
-            goTo("calendar")
+            goTo("service")   
+          }}
+        />
+      )}
+      {step === "service" && (
+        <ServiceScreen
+          doctorId={draft.provider!.id}   
+          selectedId={draft.service?.id}
+          onSelect={(service: ServiceDTO) => {
+            update({ service })
+            goTo("calendar")   
           }}
         />
       )}
@@ -149,6 +146,8 @@ export default function Page() {
         <CalendarScreen
           date={draft.date}
           time={draft.time}
+          doctorId={draft.provider!.id}
+          serviceId={draft.service!.id}
           onSelectDate={(date) => update({ date, time: null })}
           onSelectTime={(time) => update({ time })}
           onContinue={() => {
@@ -179,7 +178,7 @@ export default function Page() {
           onManage={() => jump("manage")}
           onNewBooking={() => {
             setDraft((d) => ({ ...emptyDraft, patient: d.patient }))
-            jump("service")
+             goTo("provider")
           }}
           onHome={() => {
             setDraft(emptyDraft)

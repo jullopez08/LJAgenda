@@ -1,26 +1,34 @@
+
 "use client"
 
-import { useMemo } from "react"
-import { addDays, format, isSameDay, parseISO, startOfToday } from "date-fns"
+import { useCallback, useEffect, useMemo, useState } from "react"
+import { addDays, endOfMonth, format, isSameDay, parseISO, startOfMonth, startOfToday } from "date-fns"
 import { es } from "date-fns/locale"
 import { ArrowRightIcon, SunIcon, SunsetIcon } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Calendar } from "@/components/ui/calendar"
+import { Spinner } from "@/components/ui/spinner"
 import type { TimeSlotDTO } from "@/lib/ljagenda/types"
-import { getTimeSlots } from "@/lib/ljagenda/data"
+import { getAvailabilitySummary, getAvailableSlots } from "@/lib/appointments"
+
 const toKey = (d: Date) => format(d, "yyyy-MM-dd")
+const toMonthKey = (d: Date) => format(d, "yyyy-MM")
 
 export function CalendarScreen({
   date,
   time,
+  doctorId,
+  serviceId,
   onSelectDate,
-  onSelectTime, 
+  onSelectTime,
   onContinue,
 }: {
   date: string | null
   time: string | null
+  doctorId: string
+  serviceId: string
   onSelectDate: (dateKey: string) => void
   onSelectTime: (time: string) => void
   onContinue: () => void
@@ -33,10 +41,84 @@ export function CalendarScreen({
     [today],
   )
 
-  const slots = useMemo<TimeSlotDTO[]>(
-    () => (date ? getTimeSlots(date) : []),
-    [date],
+  
+  const [dayAvailability, setDayAvailability] = useState<Record<string, boolean>>({})
+  const [loadedMonths, setLoadedMonths] = useState<Set<string>>(new Set())
+
+   const loadMonth = useCallback(
+    (monthDate: Date) => {
+      const monthKey = toMonthKey(monthDate)
+
+      setLoadedMonths((prev) => {
+        if (prev.has(monthKey)) return prev
+
+        const start = toKey(startOfMonth(monthDate))
+        const end = toKey(endOfMonth(monthDate))
+
+        getAvailabilitySummary(doctorId, serviceId, start, end)
+          .then((result) => {
+            setDayAvailability((current) => ({ ...current, ...result }))
+          })
+          .catch(() => {
+            // Si falla la carga, no bloqueamos nada visualmente; se queda seleccionable
+            // y el error real (si aplica) saldrá al intentar agendar.
+          })
+
+        const next = new Set(prev)
+        next.add(monthKey)
+        return next
+      })
+    },
+    [doctorId, serviceId],
   )
+
+ // Al montar o cambiar doctor/servicio: recarga desde cero y trae el/los mes(es)
+  // que cubre el runner de 14 días.
+  useEffect(() => {
+    setDayAvailability({})
+    setLoadedMonths(new Set())
+
+    const monthsToLoad = new Set(runnerDays.map((d) => toMonthKey(d)))
+    monthsToLoad.forEach((key) => {
+       const [y, m] = key.split("-").map(Number)
+       loadMonth(new Date(y, m - 1, 1))
+    })
+  }, [doctorId, serviceId])
+
+  const isDayAvailable =(d: Date) => {
+    const key = toKey(d)
+    // Mientras el mes no ha cargado, no lo grisamos (evita parpadeo/falsos bloqueados).
+    return dayAvailability[key] ?? true
+  }
+ // --- Horarios del día seleccionado (ya existente)
+  const [slots, setSlots] = useState<TimeSlotDTO[]>([])
+  const [loadingSlots, setLoadingSlots] = useState(false)
+
+  useEffect(() => {
+    if (!date) {
+      setSlots([])
+      return
+    }
+
+    let cancelled = false
+    setLoadingSlots(true)
+
+    getAvailableSlots(doctorId, serviceId, date)
+      .then((result) => {
+        if (!cancelled) setSlots(result)
+      })
+      .catch(() => {
+        if (!cancelled) setSlots([])
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingSlots(false)
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [date, doctorId, serviceId])
+
   const morning = slots.filter((s) => s.period === "morning")
   const afternoon = slots.filter((s) => s.period === "afternoon")
 
@@ -57,16 +139,21 @@ export function CalendarScreen({
           {runnerDays.map((d) => {
             const active = selectedDate && isSameDay(d, selectedDate)
             const isToday = isSameDay(d, today)
+            const available = isDayAvailable(d)
             return (
               <button
                 key={toKey(d)}
                 type="button"
+                disabled={!available}
                 onClick={() => onSelectDate(toKey(d))}
-                className={cn(
+               className={cn(
                   "flex min-w-14 shrink-0 flex-col items-center gap-1 rounded-[12px] border px-2 py-2.5 transition-colors outline-none focus-visible:ring-3 focus-visible:ring-ring/50",
-                  active
-                    ? "border-brand bg-brand text-brand-foreground"
-                    : "border-border bg-card text-card-foreground hover:border-brand/40",
+                  !available &&
+                    "cursor-not-allowed border-transparent bg-muted/50 text-muted-foreground/40",
+                  available &&
+                    (active
+                      ? "border-brand bg-brand text-brand-foreground"
+                      : "border-border bg-card text-card-foreground hover:border-brand/40"),
                 )}
               >
                 <span
@@ -96,33 +183,41 @@ export function CalendarScreen({
 
       {/* Desktop: full calendar matrix */}
       <div className="hidden justify-center md:flex">
-        <Calendar
+         <Calendar
           mode="single"
           locale={es}
           selected={selectedDate}
           onSelect={(d) => d && onSelectDate(toKey(d))}
-          disabled={{ before: today }}
+          onMonthChange={(month) => loadMonth(month)}
+          disabled={(d) => d < today || !isDayAvailable(d)}
           className="rounded-card border border-border [--cell-size:--spacing(9)]"
         />
       </div>
 
       {date ? (
-        <div className="flex flex-col gap-5 animate-in fade-in-0 duration-300">
-          <SlotSection
-            icon={<SunIcon className="size-3.5" />}
-            title="Mañana"
-            slots={morning}
-            selectedTime={time}
-            onSelectTime={onSelectTime}
-          />
-          <SlotSection
-            icon={<SunsetIcon className="size-3.5" />}
-            title="Tarde"
-            slots={afternoon}
-            selectedTime={time}
-            onSelectTime={onSelectTime}
-          />
-        </div>
+        loadingSlots ? (
+          <div className="flex items-center justify-center gap-2 rounded-card border border-dashed border-border bg-muted/30 px-4 py-8 text-sm text-muted-foreground">
+            <Spinner className="size-4" />
+            Cargando horarios…
+          </div>
+        ) : (
+          <div className="flex flex-col gap-5 animate-in fade-in-0 duration-300">
+            <SlotSection
+              icon={<SunIcon className="size-3.5" />}
+              title="Mañana"
+              slots={morning}
+              selectedTime={time}
+              onSelectTime={onSelectTime}
+            />
+            <SlotSection
+              icon={<SunsetIcon className="size-3.5" />}
+              title="Tarde"
+              slots={afternoon}
+              selectedTime={time}
+              onSelectTime={onSelectTime}
+            />
+          </div>
+        )
       ) : (
         <p className="rounded-card border border-dashed border-border bg-muted/30 px-4 py-6 text-center text-sm text-muted-foreground">
           Selecciona una fecha para ver las horas disponibles.
