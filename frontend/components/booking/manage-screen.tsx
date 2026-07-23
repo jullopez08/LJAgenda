@@ -25,11 +25,11 @@ import { BookingSummary } from "@/components/booking/booking-summary"
 import { tenant } from "@/lib/ljagenda/config"
 import type { AppointmentStatus, BookingDraft } from "@/lib/ljagenda/types"
 
-const STATUS_META: Record<
+ export const STATUS_META: Record<
   AppointmentStatus,
   { label: string; badge: "default" | "secondary" | "destructive"; className: string }
 > = {
-  pending: { 
+  scheduled: { 
     label: "Pendiente de confirmar",
     badge: "secondary",
     className: "bg-secondary text-secondary-foreground",
@@ -71,7 +71,7 @@ export function ManageScreen({
         <MessageCircleIcon className="size-4 shrink-0 text-success" />
         <span>
           Enlace recibido por WhatsApp desde{" "}
-          <span className="font-medium text-foreground">{tenant.supportHandle}</span>
+          <span className="font-medium text-foreground">{draft.patient?.phone ?? tenant.supportHandle}</span>
         </span>
       </div>
 
@@ -98,7 +98,7 @@ export function ManageScreen({
 
       {active ? (
         <div className="mt-auto flex flex-col gap-2.5 pt-2">
-          {status === "pending" ? (
+          {status === "scheduled" ? (
             <Button size="lg" className="h-12 w-full text-base" onClick={onConfirm}>
               <CheckIcon data-icon="inline-start" />
               Confirmar asistencia

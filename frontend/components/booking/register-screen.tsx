@@ -5,6 +5,7 @@ import { ArrowRightIcon, LockIcon } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { Spinner } from "@/components/ui/spinner"
 import {
   Field,
   FieldDescription,
@@ -13,6 +14,7 @@ import {
 } from "@/components/ui/field"
 import { documentTypes } from "@/lib/ljagenda/data"
 import type { DocumentType, PatientDTO } from "@/lib/ljagenda/types"
+import { createPatient } from "@/lib/patients"
 
 export function RegisterScreen({
   identificationType,
@@ -26,21 +28,38 @@ export function RegisterScreen({
   const [name, setFullName] = useState("")
   const [phone, setPhone] = useState("")
   const [email, setEmail] = useState("")
+  const [submitting, setSubmitting] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   const docLabel =
     documentTypes.find((d) => d.value === identificationType)?.label ?? identificationType
   const valid = name.trim().length >= 3 && phone.trim().length >= 7
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    if (!valid) return
-    onSubmit({
-      identificationType: identificationType,
-      identification: identification,
-      name: name.trim(),
-      phone: phone.trim(),
-      email: email.trim() || undefined,
-    })
+    if (!valid || submitting) return
+
+    setSubmitting(true)
+    setError(null)
+
+    try {
+      const created = await createPatient({
+        identificationType,
+        identification,
+        name: name.trim(),
+        phone: phone.trim(),
+        email: email.trim() || undefined,
+      })
+      onSubmit(created)
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "No se pudo completar el registro. Intenta de nuevo.",
+      )
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   return (
@@ -95,7 +114,7 @@ export function RegisterScreen({
             inputMode="tel"
             autoComplete="tel"
             enterKeyHint="next"
-            placeholder="Ej: 300 555 0142"
+            placeholder="Ej: 300 000 0000"
             value={phone}
             onChange={(e) => setPhone(e.target.value)}
           />
@@ -123,10 +142,17 @@ export function RegisterScreen({
         </Field>
       </FieldGroup>
 
-      <div className="mt-auto pt-2">
-        <Button size="lg" type="submit" className="h-12 w-full text-base" disabled={!valid}>
-          Continuar
-          <ArrowRightIcon data-icon="inline-end" />
+       {error ? (
+        <div className="rounded-input border border-destructive/30 bg-destructive/10 px-3.5 py-3 text-xs text-destructive">
+          {error}
+        </div>
+      ) : null}
+
+       <div className="mt-auto pt-2">
+        <Button size="lg" type="submit" className="h-12 w-full text-base" disabled={!valid || submitting}>
+          {submitting ? <Spinner data-icon="inline-start" /> : null}
+          {submitting ? "Registrando…" : "Continuar"}
+          {!submitting && <ArrowRightIcon data-icon="inline-end" />}
         </Button>
       </div>
     </form>

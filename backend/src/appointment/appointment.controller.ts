@@ -6,6 +6,7 @@ import { RescheduleAppointmentDto } from './dto/reschedule-appointment.dto';
 import { GetAppointmentsDto } from './dto/get-appointments.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { GetAvailabilitySummaryDto } from './dto/get-availability-summary.dto';
+import { SearchAppointmentDto } from './dto/search-appointment.dto';
 
 @Controller('appointment')
 export class AppointmentController {
@@ -35,6 +36,10 @@ export class AppointmentController {
             query.endDate,
         );
     }
+    @Get('patient-search')
+searchByPatient(@Query() query: SearchAppointmentDto) {
+  return this.appointmentService.searchByPatientIdentification(query.identification);
+}
     @Get()
     @UseGuards(JwtAuthGuard)
     findAll(

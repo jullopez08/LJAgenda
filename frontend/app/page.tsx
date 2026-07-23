@@ -14,6 +14,9 @@ import { SuccessScreen } from "@/components/booking/success-screen"
 import { SearchAppointmentScreen } from "@/components/booking/searchAppointmentScreen"
 import { ManageScreen } from "@/components/booking/manage-screen"
 import { getPatient } from "@/lib/patients";
+import { AppointmentListScreen } from "@/components/booking/appointment-list-screen"
+import { buildDraftFromAppointment, mapBackendStatusToFrontend } from "@/lib/appointments"
+import type { AppointmentSearchResult } from "@/lib/ljagenda/types"
 import type {
   AppointmentStatus,
   BookingDraft,
@@ -32,15 +35,17 @@ const emptyDraft: BookingDraft = {
   time: null,
 }
 
-
 export default function Page() {
   const [step, setStep] = useState<BookingStep>("welcome")
   const [history, setHistory] = useState<BookingStep[]>([])
   const [draft, setDraft] = useState<BookingDraft>(emptyDraft)
   const [docType, setDocType] = useState<DocumentType>("CC")
   const [docNumber, setDocNumber] = useState("")
-  const [status, setStatus] = useState<AppointmentStatus>("pending")
+  const [status, setStatus] = useState<AppointmentStatus>("scheduled")
   const [reschedule, setReschedule] = useState(false)
+  const [appointmentOptions, setAppointmentOptions] = useState<AppointmentSearchResult[]>([])
+  const [currentAppointmentId, setCurrentAppointmentId] = useState<string | null>(null)
+
 
   const goTo = useCallback(
     (next: BookingStep) => {
@@ -69,6 +74,13 @@ export default function Page() {
 
   const showBack = !["welcome", "success"].includes(step) && history.length > 0
 
+  function selectAppointment(appointment: AppointmentSearchResult) {
+    setDraft(buildDraftFromAppointment(appointment))
+    setStatus(mapBackendStatusToFrontend(appointment.status))
+    setCurrentAppointmentId(appointment.id)
+    jump("manage")
+  }
+
   return (
     <BookingShell step={step} onBack={showBack ? back : undefined}>
       {step === "welcome" && (
@@ -90,7 +102,7 @@ export default function Page() {
             const patient = await getPatient(number);
             if (patient) {
               update({ patient });
-              goTo("provider")   
+              goTo("provider")
               return;
             }
             setDocType(type);
@@ -99,15 +111,24 @@ export default function Page() {
           }}
         />
       )}
+
       {step === "searchAppointment" && (
         <SearchAppointmentScreen
-          onSearch={async (documentType, documentNumber) => {
-
-            console.log(documentType)
-            console.log(documentNumber)
-
-             goTo("manage")
+          onFound={(appointments) => {
+            if (appointments.length === 1) {
+              selectAppointment(appointments[0])
+            } else {
+              setAppointmentOptions(appointments)
+              goTo("appointmentList")
+            }
           }}
+        />
+      )}
+
+      {step === "appointmentList" && (
+        <AppointmentListScreen
+          appointments={appointmentOptions}
+          onSelect={selectAppointment}
         />
       )}
 
@@ -117,7 +138,7 @@ export default function Page() {
           identification={docNumber}
           onSubmit={(patient: PatientDTO) => {
             update({ patient })
-            goTo("provider")  
+            goTo("provider")
           }}
         />
       )}
@@ -127,17 +148,17 @@ export default function Page() {
           selectedId={draft.provider?.id}
           onSelect={(provider: ProviderDTO) => {
             update({ provider })
-            goTo("service")   
+            goTo("service")
           }}
         />
       )}
       {step === "service" && (
         <ServiceScreen
-          doctorId={draft.provider!.id}   
+          doctorId={draft.provider!.id}
           selectedId={draft.service?.id}
           onSelect={(service: ServiceDTO) => {
             update({ service })
-            goTo("calendar")   
+            goTo("calendar")
           }}
         />
       )}
@@ -153,7 +174,7 @@ export default function Page() {
           onContinue={() => {
             if (reschedule) {
               setReschedule(false)
-              setStatus("pending")
+              setStatus("scheduled")
               jump("manage")
             } else {
               goTo("confirm")
@@ -166,7 +187,7 @@ export default function Page() {
         <ConfirmScreen
           draft={draft}
           onConfirm={() => {
-            setStatus("pending")
+            setStatus("scheduled")
             jump("success")
           }}
         />
@@ -178,7 +199,7 @@ export default function Page() {
           onManage={() => jump("manage")}
           onNewBooking={() => {
             setDraft((d) => ({ ...emptyDraft, patient: d.patient }))
-             goTo("provider")
+            goTo("provider")
           }}
           onHome={() => {
             setDraft(emptyDraft)

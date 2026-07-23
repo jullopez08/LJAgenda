@@ -26,3 +26,17 @@ export async function getPatient(
   }
 
 }
+export async function createPatient(patient: PatientDTO): Promise<PatientDTO> {
+  const created = await api<PatientDTO>("/patients", {
+    method: "POST",
+    body: JSON.stringify(patient),
+  });
+
+  return {
+    identificationType: created.identificationType,
+    identification: created.identification,
+    name: created.name,
+    phone: created.phone,
+    email: created.email,
+  };
+}

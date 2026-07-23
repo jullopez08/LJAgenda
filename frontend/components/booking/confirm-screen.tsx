@@ -56,7 +56,7 @@ export function ConfirmScreen({
         <InfoIcon className="mt-0.5 size-3.5 shrink-0" />
         <p>
           Recibirás la confirmación y recordatorios por WhatsApp al{" "}
-          <span className="font-medium text-foreground">{tenant.supportHandle}</span>.
+          <span className="font-medium text-foreground">{draft.patient?.phone ?? tenant.supportHandle}</span>.
           El pago se realiza en el consultorio.
         </p>
       </div>

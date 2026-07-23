@@ -5,18 +5,20 @@ import { DoctorScheduleQueryService } from '../common/doctor-schedule-query.serv
 import { getAppointmentDuration, getCurrentTime, hasSlotConflict } from './helpers/appointment-slot';
 import { generateSlots } from './helpers/appointment-slot';
 import { addMinutes, timeToMinutes } from './helpers/appointment-time';
-import { isToday } from './helpers/appointment-date';
+import { isToday, startOfDay } from './helpers/appointment-date';
 import { RescheduleAppointmentDto } from './dto/reschedule-appointment.dto';
 import { AppointmentStatus } from '@prisma/client';
 import { StatusValidators } from './validators/appointment-state.validator';
 import { GetAppointmentsDto } from './dto/get-appointments.dto';
+import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
 export class AppointmentService {
     constructor(
         private readonly validators: AppointmentValidators,
         private readonly queryService: DoctorScheduleQueryService,
-        private readonly stateValidator: StatusValidators
+        private readonly stateValidator: StatusValidators,
+        private readonly prisma: PrismaService,
     ) { }
 
     async create(dto: CreateAppointmentDto) {
@@ -24,7 +26,7 @@ export class AppointmentService {
         const doctor = await this.validators.validateDoctor(dto.doctorId);
 
         const service = await this.validators.validateService(dto.serviceId);
-        
+
         const patient = await this.validators.findOrCreatePatient(dto)
 
         await this.validators.validateDoctorBlock(doctor, dto.appointmentDate);
@@ -41,120 +43,175 @@ export class AppointmentService {
 
     }
 
-   async getAvailableSlots(doctorId: string, serviceId: string, date: string) {
+    async getAvailableSlots(doctorId: string, serviceId: string, date: string) {
 
-    const doctor = await this.validators.validateDoctor(doctorId);
-    const service = await this.validators.validateService(serviceId);
+        const doctor = await this.validators.validateDoctor(doctorId);
+        const service = await this.validators.validateService(serviceId);
 
-    await this.validators.validateDoctorBlock(doctor, date);
-    await this.validators.validateHoliday(date);
+        await this.validators.validateDoctorBlock(doctor, date);
+        await this.validators.validateHoliday(date);
 
-    const availabilities = await this.queryService.getDoctorAvailabilities(doctorId, date);
-    const blocks = await this.queryService.getDoctorScheduleBlocks(doctorId, date);
-    const appointments = await this.queryService.getAppointments(doctorId, date);
+        const availabilities = await this.queryService.getDoctorAvailabilities(doctorId, date);
+        const blocks = await this.queryService.getDoctorScheduleBlocks(doctorId, date);
+        const appointments = await this.queryService.getAppointments(doctorId, date);
 
-    const appointmentDuration = getAppointmentDuration(service.duration, doctor.slotGap);
+        const appointmentDuration = getAppointmentDuration(service.duration, doctor.slotGap);
 
-    let allSlots: string[] = [];
-    for (const availability of availabilities) {
-        allSlots.push(...generateSlots(availability.startTime, availability.endTime, appointmentDuration));
-    }
-
-    const currentTime = isToday(date) ? getCurrentTime() : null;
-
-    return allSlots.map((slot) => {
-        const hasBlockConflict = blocks.some((block) =>
-            hasSlotConflict(slot, appointmentDuration, block.startTime, block.endTime));
-
-        const hasAppointmentConflict = appointments.some((appointment) => {
-            const dur = getAppointmentDuration(appointment.service.duration, doctor.slotGap);
-            return hasSlotConflict(slot, appointmentDuration, appointment.appointmentTime,
-                addMinutes(appointment.appointmentTime, dur));
-        });
-
-        const isPast = currentTime !== null && timeToMinutes(slot) <= timeToMinutes(currentTime);
-
-        return { time: slot, disabled: hasBlockConflict || hasAppointmentConflict || isPast };
-    });
-}
-async getAvailabilitySummary(
-    doctorId: string,
-    serviceId: string,
-    startDate: string,
-    endDate: string,
-) {
-    const doctor = await this.validators.validateDoctor(doctorId);
-    const service = await this.validators.validateService(serviceId);
-
-    const dates = this.getDateRange(startDate, endDate);
-    const appointmentDuration = getAppointmentDuration(service.duration, doctor.slotGap);
-
-    const summary: { date: string; available: boolean }[] = [];
-
-    for (const date of dates) {
-        let available = false;
-
-        try {
-            await this.validators.validateDoctorBlock(doctor, date);
-            await this.validators.validateHoliday(date);
-
-            const availabilities = await this.queryService.getDoctorAvailabilities(doctorId, date);
-
-            if (availabilities.length > 0) {
-                const blocks = await this.queryService.getDoctorScheduleBlocks(doctorId, date);
-                const appointments = await this.queryService.getAppointments(doctorId, date);
-
-                let allSlots: string[] = [];
-                for (const availability of availabilities) {
-                    allSlots.push(...generateSlots(availability.startTime, availability.endTime, appointmentDuration));
-                }
-
-                const currentTime = isToday(date) ? getCurrentTime() : null;
-
-                available = allSlots.some((slot) => {
-                    const hasBlockConflict = blocks.some((block) =>
-                        hasSlotConflict(slot, appointmentDuration, block.startTime, block.endTime));
-
-                    const hasAppointmentConflict = appointments.some((appointment) => {
-                        const dur = getAppointmentDuration(appointment.service.duration, doctor.slotGap);
-                        return hasSlotConflict(slot, appointmentDuration, appointment.appointmentTime,
-                            addMinutes(appointment.appointmentTime, dur));
-                    });
-
-                    const isPast = currentTime !== null && timeToMinutes(slot) <= timeToMinutes(currentTime);
-
-                    return !hasBlockConflict && !hasAppointmentConflict && !isPast;
-                });
-            }
-        } catch {
-            // Festivo, bloqueo de vacaciones, fecha inválida, etc. -> día no disponible
-            available = false;
+        let allSlots: string[] = [];
+        for (const availability of availabilities) {
+            allSlots.push(...generateSlots(availability.startTime, availability.endTime, appointmentDuration));
         }
 
-        summary.push({ date, available });
+        const currentTime = isToday(date) ? getCurrentTime() : null;
+
+        return allSlots.map((slot) => {
+            const hasBlockConflict = blocks.some((block) =>
+                hasSlotConflict(slot, appointmentDuration, block.startTime, block.endTime));
+
+            const hasAppointmentConflict = appointments.some((appointment) => {
+                const dur = getAppointmentDuration(appointment.service.duration, doctor.slotGap);
+                return hasSlotConflict(slot, appointmentDuration, appointment.appointmentTime,
+                    addMinutes(appointment.appointmentTime, dur));
+            });
+
+            const isPast = currentTime !== null && timeToMinutes(slot) <= timeToMinutes(currentTime);
+
+            return { time: slot, disabled: hasBlockConflict || hasAppointmentConflict || isPast };
+        });
+    }
+    async getAvailabilitySummary(
+        doctorId: string,
+        serviceId: string,
+        startDate: string,
+        endDate: string,
+    ) {
+        const doctor = await this.validators.validateDoctor(doctorId);
+        const service = await this.validators.validateService(serviceId);
+
+        const dates = this.getDateRange(startDate, endDate);
+        const appointmentDuration = getAppointmentDuration(service.duration, doctor.slotGap);
+
+        const summary: { date: string; available: boolean }[] = [];
+
+        for (const date of dates) {
+            let available = false;
+
+            try {
+                await this.validators.validateDoctorBlock(doctor, date);
+                await this.validators.validateHoliday(date);
+
+                const availabilities = await this.queryService.getDoctorAvailabilities(doctorId, date);
+
+                if (availabilities.length > 0) {
+                    const blocks = await this.queryService.getDoctorScheduleBlocks(doctorId, date);
+                    const appointments = await this.queryService.getAppointments(doctorId, date);
+
+                    let allSlots: string[] = [];
+                    for (const availability of availabilities) {
+                        allSlots.push(...generateSlots(availability.startTime, availability.endTime, appointmentDuration));
+                    }
+
+                    const currentTime = isToday(date) ? getCurrentTime() : null;
+
+                    available = allSlots.some((slot) => {
+                        const hasBlockConflict = blocks.some((block) =>
+                            hasSlotConflict(slot, appointmentDuration, block.startTime, block.endTime));
+
+                        const hasAppointmentConflict = appointments.some((appointment) => {
+                            const dur = getAppointmentDuration(appointment.service.duration, doctor.slotGap);
+                            return hasSlotConflict(slot, appointmentDuration, appointment.appointmentTime,
+                                addMinutes(appointment.appointmentTime, dur));
+                        });
+
+                        const isPast = currentTime !== null && timeToMinutes(slot) <= timeToMinutes(currentTime);
+
+                        return !hasBlockConflict && !hasAppointmentConflict && !isPast;
+                    });
+                }
+            } catch {
+                // Festivo, bloqueo de vacaciones, fecha inválida, etc. -> día no disponible
+                available = false;
+            }
+
+            summary.push({ date, available });
+        }
+
+        return summary;
     }
 
-    return summary;
-}
+    private getDateRange(startDate: string, endDate: string): string[] {
+        const dates: string[] = [];
+        const [sy, sm, sd] = startDate.split('-').map(Number);
+        const [ey, em, ed] = endDate.split('-').map(Number);
 
-private getDateRange(startDate: string, endDate: string): string[] {
-    const dates: string[] = [];
-    const [sy, sm, sd] = startDate.split('-').map(Number);
-    const [ey, em, ed] = endDate.split('-').map(Number);
+        let current = new Date(sy, sm - 1, sd);
+        const end = new Date(ey, em - 1, ed);
 
-    let current = new Date(sy, sm - 1, sd);
-    const end = new Date(ey, em - 1, ed);
+        while (current <= end) {
+            const y = current.getFullYear();
+            const m = (current.getMonth() + 1).toString().padStart(2, '0');
+            const d = current.getDate().toString().padStart(2, '0');
+            dates.push(`${y}-${m}-${d}`);
+            current.setDate(current.getDate() + 1);
+        }
 
-    while (current <= end) {
-        const y = current.getFullYear();
-        const m = (current.getMonth() + 1).toString().padStart(2, '0');
-        const d = current.getDate().toString().padStart(2, '0');
-        dates.push(`${y}-${m}-${d}`);
-        current.setDate(current.getDate() + 1);
+        return dates;
+    }
+    async searchByPatientIdentification(identification: string) {
+    const patient = await this.prisma.patient.findUnique({
+        where: { identification },
+    });
+
+    if (!patient) {
+        return [];
     }
 
-    return dates;
+    const today = startOfDay(new Date());
+
+    const appointments = await this.prisma.appointment.findMany({
+        where: {
+            patientId: patient.id,
+            status: { not: AppointmentStatus.CANCELLED },
+            appointmentDate: { gte: today },
+        },
+        include: {
+            doctor: true,
+            service: true,
+            patient: true,
+        },
+        orderBy: [
+            { appointmentDate: 'asc' },
+            { appointmentTime: 'asc' },
+        ],
+    });
+
+    return appointments.map((appointment) => ({
+        id: appointment.id,
+        status: appointment.status,
+        appointmentDate: appointment.appointmentDate.toISOString().split('T')[0],
+        appointmentTime: appointment.appointmentTime,
+        doctor: {
+            id: appointment.doctor.id,
+            name: appointment.doctor.name,
+        },
+        service: {
+            id: appointment.service.id,
+            name: appointment.service.name,
+            description: appointment.service.description ?? "",
+            basePrice: appointment.service.basePrice
+                ? Number(appointment.service.basePrice)
+                : undefined,
+        },
+        patient: {
+            identificationType: appointment.patient.identificationType,
+            identification: appointment.patient.identification,
+            name: appointment.patient.name,
+            phone: appointment.patient.phone,
+            email: appointment.patient.email ?? undefined,
+        },
+    }));
 }
+    
     async findAll(query: GetAppointmentsDto) {
 
         return this.stateValidator.findAppointments(query);

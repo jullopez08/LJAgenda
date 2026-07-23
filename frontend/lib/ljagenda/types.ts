@@ -54,6 +54,15 @@ export interface CreateAppointmentPayload {
   appointmentTime: string;
   observations?: string;
 }
+export interface AppointmentSearchResult {
+  id: string
+  status: string 
+  appointmentDate: string
+  appointmentTime: string
+  doctor: { id: string; name: string }
+  service: { id: string; name: string; description?: string; basePrice?: number }
+  patient: PatientDTO
+}
 
 export type BookingStep =
   | "welcome"
@@ -65,6 +74,7 @@ export type BookingStep =
   | "confirm"
   | "success"
   | "searchAppointment"
+  | "appointmentList"
   | "manage"
 
-export type AppointmentStatus = "pending" | "confirmed" | "cancelled"
+export type AppointmentStatus = "scheduled" | "confirmed" | "cancelled"

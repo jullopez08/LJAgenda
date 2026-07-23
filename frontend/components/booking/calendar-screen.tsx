@@ -1,7 +1,6 @@
-
 "use client"
 
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { addDays, endOfMonth, format, isSameDay, parseISO, startOfMonth, startOfToday } from "date-fns"
 import { es } from "date-fns/locale"
 import { ArrowRightIcon, SunIcon, SunsetIcon } from "lucide-react"
@@ -33,7 +32,7 @@ export function CalendarScreen({
   onSelectTime: (time: string) => void
   onContinue: () => void
 }) {
-  const today = startOfToday()
+  const today = useMemo(() => startOfToday(), [])
   const selectedDate = date ? parseISO(date) : undefined
 
   const runnerDays = useMemo(
@@ -41,56 +40,50 @@ export function CalendarScreen({
     [today],
   )
 
-  
   const [dayAvailability, setDayAvailability] = useState<Record<string, boolean>>({})
-  const [loadedMonths, setLoadedMonths] = useState<Set<string>>(new Set())
+  // Usamos useRef para rastrear los meses cargados sin provocar re-renders infinitos
+  const loadedMonthsRef = useRef<Set<string>>(new Set())
 
-   const loadMonth = useCallback(
-    (monthDate: Date) => {
+  const loadMonth = useCallback(
+    async (monthDate: Date) => {
       const monthKey = toMonthKey(monthDate)
 
-      setLoadedMonths((prev) => {
-        if (prev.has(monthKey)) return prev
+      if (loadedMonthsRef.current.has(monthKey)) return
 
-        const start = toKey(startOfMonth(monthDate))
-        const end = toKey(endOfMonth(monthDate))
+      loadedMonthsRef.current.add(monthKey)
 
-        getAvailabilitySummary(doctorId, serviceId, start, end)
-          .then((result) => {
-            setDayAvailability((current) => ({ ...current, ...result }))
-          })
-          .catch(() => {
-            // Si falla la carga, no bloqueamos nada visualmente; se queda seleccionable
-            // y el error real (si aplica) saldrá al intentar agendar.
-          })
+      const start = toKey(startOfMonth(monthDate))
+      const end = toKey(endOfMonth(monthDate))
 
-        const next = new Set(prev)
-        next.add(monthKey)
-        return next
-      })
+      try {
+        const result = await getAvailabilitySummary(doctorId, serviceId, start, end)
+        setDayAvailability((current) => ({ ...current, ...result }))
+      } catch (error) {
+        // Si falla, permitimos reintentar borrando la clave de la memoria en caché
+        loadedMonthsRef.current.delete(monthKey)
+      }
     },
     [doctorId, serviceId],
   )
 
- // Al montar o cambiar doctor/servicio: recarga desde cero y trae el/los mes(es)
-  // que cubre el runner de 14 días.
+  // Al cambiar doctor/servicio: reiniciamos los estados limpios
   useEffect(() => {
     setDayAvailability({})
-    setLoadedMonths(new Set())
+    loadedMonthsRef.current.clear()
 
     const monthsToLoad = new Set(runnerDays.map((d) => toMonthKey(d)))
     monthsToLoad.forEach((key) => {
-       const [y, m] = key.split("-").map(Number)
-       loadMonth(new Date(y, m - 1, 1))
+      const [y, m] = key.split("-").map(Number)
+      loadMonth(new Date(y, m - 1, 1))
     })
-  }, [doctorId, serviceId])
+  }, [doctorId, serviceId, runnerDays, loadMonth])
 
-  const isDayAvailable =(d: Date) => {
+  const isDayAvailable = (d: Date) => {
     const key = toKey(d)
-    // Mientras el mes no ha cargado, no lo grisamos (evita parpadeo/falsos bloqueados).
     return dayAvailability[key] ?? true
   }
- // --- Horarios del día seleccionado (ya existente)
+
+  // --- Horarios del día seleccionado
   const [slots, setSlots] = useState<TimeSlotDTO[]>([])
   const [loadingSlots, setLoadingSlots] = useState(false)
 
@@ -146,7 +139,7 @@ export function CalendarScreen({
                 type="button"
                 disabled={!available}
                 onClick={() => onSelectDate(toKey(d))}
-               className={cn(
+                className={cn(
                   "flex min-w-14 shrink-0 flex-col items-center gap-1 rounded-[12px] border px-2 py-2.5 transition-colors outline-none focus-visible:ring-3 focus-visible:ring-ring/50",
                   !available &&
                     "cursor-not-allowed border-transparent bg-muted/50 text-muted-foreground/40",
@@ -183,7 +176,7 @@ export function CalendarScreen({
 
       {/* Desktop: full calendar matrix */}
       <div className="hidden justify-center md:flex">
-         <Calendar
+        <Calendar
           mode="single"
           locale={es}
           selected={selectedDate}

@@ -17,11 +17,15 @@ import { Field, FieldGroup, FieldLabel } from "@/components/ui/field"
 
 import { documentTypes } from "@/lib/ljagenda/data"
 import type { DocumentType } from "@/lib/ljagenda/types"
+import { Spinner } from "../ui/spinner"
 
 interface IdentifyFormProps {
   title: string
   description: string
   buttonText: string
+  loadingText?: string
+  loading?: boolean
+  error?: string | null
   onSubmit: (
     identificationType: DocumentType,
     identification: string,
@@ -32,6 +36,9 @@ export function IdentifyForm({
   title,
   description,
   buttonText,
+  loadingText = "Cargando…",
+  loading = false,
+  error = null,
   onSubmit,
 }: IdentifyFormProps) {
   const [identificationType, setDocumentType] = useState<DocumentType>("CC")
@@ -109,16 +116,23 @@ export function IdentifyForm({
         </Field>
       </FieldGroup>
 
+      {error ? (
+        <div className="rounded-input border border-destructive/30 bg-destructive/10 px-3.5 py-3 text-xs text-destructive">
+          {error}
+        </div>
+      ) : null}
+
       <div className="mt-auto pt-2">
         <Button
           size="lg"
           className="h-12 w-full text-base"
-          disabled={!canContinue}
+          disabled={!canContinue || loading}
           onClick={handleSubmit}
         >
-          {buttonText}
-
-          <ArrowRightIcon data-icon="inline-end" />
+          {loading ? <Spinner data-icon="inline-start" /> : null}
+          {loading ? loadingText : buttonText}
+          {!loading && <ArrowRightIcon data-icon="inline-end" />}
+         
         </Button>
       </div>
     </div>
