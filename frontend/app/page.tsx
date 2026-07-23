@@ -13,7 +13,7 @@ import { ConfirmScreen } from "@/components/booking/confirm-screen"
 import { SuccessScreen } from "@/components/booking/success-screen"
 import { SearchAppointmentScreen } from "@/components/booking/searchAppointmentScreen"
 import { ManageScreen } from "@/components/booking/manage-screen"
-import { getPatient } from "@/lib/patients";
+import { getPatient } from "@/lib/patients"
 import { AppointmentListScreen } from "@/components/booking/appointment-list-screen"
 import { buildDraftFromAppointment, mapBackendStatusToFrontend } from "@/lib/appointments"
 import type { AppointmentSearchResult } from "@/lib/ljagenda/types"
@@ -46,31 +46,28 @@ export default function Page() {
   const [appointmentOptions, setAppointmentOptions] = useState<AppointmentSearchResult[]>([])
   const [currentAppointmentId, setCurrentAppointmentId] = useState<string | null>(null)
 
-
-  const goTo = useCallback(
-    (next: BookingStep) => {
-      setHistory((h) => [...h, step])
-      setStep(next)
-    },
-    [step],
-  )
+  // Transiciones de estado seguras (fuera de callbacks de set)
+  const goTo = useCallback((next: BookingStep) => {
+    setHistory((h) => [...h, step])
+    setStep(next)
+  }, [step])
 
   const jump = useCallback((next: BookingStep) => {
     setHistory([])
     setStep(next)
   }, [])
 
+  // Corrección crítica del método back
   const back = useCallback(() => {
-    setHistory((h) => {
-      if (h.length === 0) return h
-      const prev = h[h.length - 1]
-      setStep(prev)
-      return h.slice(0, -1)
-    })
-  }, [])
+    if (history.length === 0) return
+    const prev = history[history.length - 1]
+    setHistory((h) => h.slice(0, -1))
+    setStep(prev)
+  }, [history])
 
-  const update = (patch: Partial<BookingDraft>) =>
+  const update = useCallback((patch: Partial<BookingDraft>) => {
     setDraft((d) => ({ ...d, ...patch }))
+  }, [])
 
   const showBack = !["welcome", "success"].includes(step) && history.length > 0
 
@@ -99,15 +96,15 @@ export default function Page() {
       {step === "identify" && (
         <IdentifyScreen
           onNew={async (type, number) => {
-            const patient = await getPatient(number);
+            const patient = await getPatient(number)
             if (patient) {
-              update({ patient });
+              update({ patient })
               goTo("provider")
-              return;
+              return
             }
-            setDocType(type);
-            setDocNumber(number);
-            goTo("register");
+            setDocType(type)
+            setDocNumber(number)
+            goTo("register")
           }}
         />
       )}
@@ -152,6 +149,7 @@ export default function Page() {
           }}
         />
       )}
+
       {step === "service" && (
         <ServiceScreen
           doctorId={draft.provider!.id}
