@@ -76,5 +76,7 @@ export type BookingStep =
   | "searchAppointment"
   | "appointmentList"
   | "manage"
+  | "doctorLogin"
+  | "doctorDashboard"
 
 export type AppointmentStatus = "scheduled" | "confirmed" | "cancelled"

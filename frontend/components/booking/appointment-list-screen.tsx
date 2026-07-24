@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils"
 import { Card } from "@/components/ui/card"
 import { formatLongDate } from "@/components/booking/booking-summary"
 import { STATUS_META } from "@/components/booking/manage-screen"
-import { mapBackendStatusToFrontend } from "@/lib/appointments"
+import { mapBackendStatusToFrontend } from "@/lib/patient/appointments"
 import type { AppointmentSearchResult } from "@/lib/ljagenda/types"
 
 export function AppointmentListScreen({

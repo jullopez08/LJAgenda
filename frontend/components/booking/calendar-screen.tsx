@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button"
 import { Calendar } from "@/components/ui/calendar"
 import { Spinner } from "@/components/ui/spinner"
 import type { TimeSlotDTO } from "@/lib/ljagenda/types"
-import { getAvailabilitySummary, getAvailableSlots } from "@/lib/appointments"
+import { getAvailabilitySummary, getAvailableSlots } from "@/lib/patient/appointments"
 
 const toKey = (d: Date) => format(d, "yyyy-MM-dd")
 const toMonthKey = (d: Date) => format(d, "yyyy-MM")

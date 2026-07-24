@@ -1,4 +1,4 @@
-import { api } from "./api";
+import { api } from "../api";
 import type { TimeSlotDTO } from "@/lib/ljagenda/types";
 import type { AppointmentSearchResult, AppointmentStatus, BookingDraft } from "@/lib/ljagenda/types";
 

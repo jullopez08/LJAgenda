@@ -2,7 +2,7 @@
 import { useState } from "react"
 import { IdentifyForm } from "./identify-form"
 import type { DocumentType } from "@/lib/ljagenda/types"
-import { searchAppointmentsByIdentification } from "@/lib/appointments"
+import { searchAppointmentsByIdentification } from "@/lib/patient/appointments"
 import type { AppointmentSearchResult } from "@/lib/ljagenda/types"
 
 

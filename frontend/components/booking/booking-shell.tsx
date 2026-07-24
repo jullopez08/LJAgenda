@@ -7,17 +7,20 @@ import { Button } from "@/components/ui/button"
 import { BrandLogo } from "@/components/booking/brand-logo"
 import { StepProgress } from "@/components/booking/step-progress"
 import type { BookingStep } from "@/lib/ljagenda/types"
+import { DoctorEntry } from "../doctor/doctor-entry"
 
 export function BookingShell({
   step,
   onBack,
   children,
   headerSlot,
+  onDoctorClick,
 }: {
   step: BookingStep
   onBack?: () => void
   children: ReactNode
   headerSlot?: ReactNode
+  onDoctorClick?: () => void
 }) {
   const showProgress = !["welcome", "success", "manage"].includes(step)
 
@@ -39,15 +42,16 @@ export function BookingShell({
             ) : null}
             <BrandLogo showName={!onBack} />
           </div>
+          <DoctorEntry  onClick={onDoctorClick!}/>
           {headerSlot}
         </div>
       </header>
 
       <main className="mx-auto flex w-full max-w-lg flex-1 flex-col px-4 pb-10 pt-5">
         {showProgress ? (
-          <div className="mb-6">
+          <div className="mb-6"> 
             <StepProgress current={step} />
-          </div>
+          </div> 
         ) : null}
         {children}
       </main>

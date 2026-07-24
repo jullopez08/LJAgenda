@@ -13,10 +13,12 @@ import { ConfirmScreen } from "@/components/booking/confirm-screen"
 import { SuccessScreen } from "@/components/booking/success-screen"
 import { SearchAppointmentScreen } from "@/components/booking/searchAppointmentScreen"
 import { ManageScreen } from "@/components/booking/manage-screen"
-import { getPatient } from "@/lib/patients"
+import { getPatient } from "@/lib/patient/patients"
 import { AppointmentListScreen } from "@/components/booking/appointment-list-screen"
-import { buildDraftFromAppointment, mapBackendStatusToFrontend } from "@/lib/appointments"
+import { buildDraftFromAppointment, mapBackendStatusToFrontend } from "@/lib/patient/appointments"
 import type { AppointmentSearchResult } from "@/lib/ljagenda/types"
+import { LoginGate } from "@/components/doctor/login-gate"
+import { DoctorDashboard } from "@/components/doctor/doctor-dashboard"
 import type {
   AppointmentStatus,
   BookingDraft,
@@ -45,8 +47,8 @@ export default function Page() {
   const [reschedule, setReschedule] = useState(false)
   const [appointmentOptions, setAppointmentOptions] = useState<AppointmentSearchResult[]>([])
   const [currentAppointmentId, setCurrentAppointmentId] = useState<string | null>(null)
+  const [doctorAuthenticated, setDoctorAuthenticated] = useState(false)
 
-  // Transiciones de estado seguras (fuera de callbacks de set)
   const goTo = useCallback((next: BookingStep) => {
     setHistory((h) => [...h, step])
     setStep(next)
@@ -57,7 +59,6 @@ export default function Page() {
     setStep(next)
   }, [])
 
-  // Corrección crítica del método back
   const back = useCallback(() => {
     if (history.length === 0) return
     const prev = history[history.length - 1]
@@ -78,8 +79,32 @@ export default function Page() {
     jump("manage")
   }
 
+  // 👇 Pantallas de doctor: shell completo propio, NUNCA dentro de BookingShell.
+  if (step === "doctorLogin") {
+    return (
+      <LoginGate
+        onBack={back}
+        onLogin={() => {
+          setDoctorAuthenticated(true)
+          goTo("doctorDashboard")
+        }}
+      />
+    )
+  }
+
+  if (step === "doctorDashboard") {
+    return (
+      <DoctorDashboard
+        onLogout={() => {
+          setDoctorAuthenticated(false)
+          jump("doctorLogin")
+        }}
+      />
+    )
+  }
+
   return (
-    <BookingShell step={step} onBack={showBack ? back : undefined}>
+    <BookingShell step={step} onBack={showBack ? back : undefined} onDoctorClick={() => goTo("doctorLogin")}>
       {step === "welcome" && (
         <WelcomeScreen
           onStart={() => {

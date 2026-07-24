@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/field"
 import { documentTypes } from "@/lib/ljagenda/data"
 import type { DocumentType, PatientDTO } from "@/lib/ljagenda/types"
-import { createPatient } from "@/lib/patients"
+import { createPatient } from "@/lib/patient/patients"
 
 export function RegisterScreen({
   identificationType,
